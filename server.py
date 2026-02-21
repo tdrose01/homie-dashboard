@@ -8,10 +8,12 @@ import re
 import time
 from datetime import datetime
 
+BASE_DIR = pathlib.Path(__file__).resolve().parent
 WORKSPACE = "/home/rosebud0585/.openclaw/workspace1"
 MEMORY_DIR = f"{WORKSPACE}/memory"
 SKILLS_DIR = f"{WORKSPACE}/skills"
 PORT = 8899
+TODO_FILE = BASE_DIR / "TODO.md"
 
 KNOWN_SKILLS = ["antigravity-code","antigravity-proxy","backup-rotate","claude-antigravity-task","email-sender","morning-brief","nba-analytics","openclaw-superpowers","openrouter-credits","self-improving-agent","subagent-runner","system-check"]
 
@@ -95,6 +97,24 @@ def parse_activities(limit=50):
             break
     return acts
 
+
+def parse_todos():
+    todos = []
+    if not TODO_FILE.exists():
+        return {"items": [], "total": 0, "done": 0, "percent": 0}
+
+    for line in TODO_FILE.read_text().splitlines():
+        m = re.match(r"^\s*[-*]\s*\[( |x|X)\]\s*(.+)$", line)
+        if not m:
+            continue
+        done = m.group(1).lower() == "x"
+        todos.append({"text": m.group(2).strip(), "done": done})
+
+    total = len(todos)
+    done_count = len([t for t in todos if t["done"]])
+    pct = round((done_count / total) * 100) if total else 0
+    return {"items": todos, "total": total, "done": done_count, "percent": pct}
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {fmt % args}")
@@ -117,7 +137,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         params[k] = v
             
             if path == "/":
-                with open(f"{WORKSPACE}/dashboard/index.html") as f:
+                with open(BASE_DIR / "index.html") as f:
                     html = f.read()
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
@@ -187,6 +207,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                             lvl = "error" if any(x in lo for x in ["error","fail","429","blocked"]) else "warning"
                             issues.append({"message": line.strip()[:120], "level": lvl})
                 self.send_json({"issues": issues, "nominal": len(issues)==0})
+            elif path == "/api/todos":
+                self.send_json(parse_todos())
             else:
                 self.send_json({"error": "Not found"}, 404)
         except Exception as e:
