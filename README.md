@@ -23,6 +23,28 @@ python3 server.py
 
 - `/` - Dashboard UI
 - `/api/status` - System status JSON
+- `/api/actions` - List allowlisted quick actions + cooldown info
+- `/api/actions/run` - Execute one allowlisted action (POST JSON: `{"action":"restart_homie_dashboard"}`)
+
+## Action Center (V1)
+
+The dashboard includes an **Action Center** panel with safe quick actions:
+
+- Restart `homie-dashboard.service`
+- Restart `openclaw-gateway.service`
+- Check OpenClaw gateway health
+
+### Example API calls
+
+```bash
+# list actions
+curl -s http://127.0.0.1:8899/api/actions | jq
+
+# run one action
+curl -s -X POST http://127.0.0.1:8899/api/actions/run \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"check_gateway_health"}' | jq
+```
 
 ## Screenshot
 

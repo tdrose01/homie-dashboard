@@ -29,6 +29,9 @@
         }
         .glass { background: var(--card); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: opacity 0.3s; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+        .header-actions { display:flex; gap:10px; align-items:center; }
+        .btn { border:1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; }
+        .btn:hover { border-color: rgba(0,212,255,0.4); color: var(--cyan); }
         h1 { font-size: 26px; font-weight: 600; background: linear-gradient(135deg, var(--cyan), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .meta { display: flex; gap: 20px; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--muted); }
         .live { color: var(--cyan); }
@@ -36,8 +39,8 @@
         @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
         .grid { display: grid; gap: 20px; margin-bottom: 24px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
         .status-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-        @media (max-width: 1024px) { .status-row { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 640px) { .status-row { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } }
+        @media (max-width: 1024px) { .status-row { grid-template-columns: repeat(2, 1fr); } .memory-panel { grid-column: 1 / -1 !important; } }
+        @media (max-width: 640px) { .status-row { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } .meta { gap: 12px; font-size: 12px; } }
         .stat { text-align: center; }
         .stat .val { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 500; color: var(--cyan); margin: 8px 0; }
         .stat .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
@@ -75,9 +78,19 @@
         .progress-row { display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:12px; margin-bottom:8px; color:var(--muted); }
         .progress-bar { height:8px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden; }
         .progress-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--cyan),var(--purple)); transition:width .3s ease; }
-        .todo-list { font-size:13px; display:flex; flex-direction:column; gap:8px; }
+        .todo-list { font-size:13px; display:flex; flex-direction:column; gap:12px; }
+        .todo-project { padding:10px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); }
+        .todo-project-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+        .todo-project-name { font-weight:600; color:var(--cyan); }
+        .todo-project-meta { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); }
+        .todo-items { display:flex; flex-direction:column; gap:8px; }
         .todo-item { padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.04); }
         .todo-item.done { opacity:.65; text-decoration:line-through; }
+        .action-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:10px; }
+        .action-btn { text-align:left; font-size:12px; padding:10px 12px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text); border-radius:8px; cursor:pointer; }
+        .action-btn:hover { border-color: rgba(0,212,255,0.4); color: var(--cyan); }
+        .action-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .action-result { margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; color:var(--muted); background:rgba(0,0,0,.2); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:44px; }
     </style>
 </head>
 <body>
@@ -89,6 +102,9 @@
             <div style="display:flex;align-items:center;gap:8px;">
                 <div class="dot"></div>
                 <span id="countdown">30s</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn" onclick="load()">Refresh now</button>
             </div>
         </div>
     </header>
@@ -118,7 +134,7 @@
             <div class="skills" id="skills">Loading...</div>
         </div>
 
-        <div class="glass" style="grid-column: span 2;">
+        <div class="glass memory-panel" style="grid-column: span 2;">
             <div class="panel-header">Memory Log <span id="mem-date" style="color:var(--cyan);"></span></div>
             <div class="date-chips" id="date-chips"></div>
             <div class="memory-content" id="memory-content">Loading...</div>
@@ -127,6 +143,12 @@
         <div class="glass">
             <div class="panel-header">Alerts Panel</div>
             <div id="issues">Loading...</div>
+        </div>
+
+        <div class="glass" style="grid-column: 1 / -1;">
+            <div class="panel-header">Action Center</div>
+            <div id="action-grid" class="action-grid">Loading...</div>
+            <div id="action-result" class="action-result">No actions run yet.</div>
         </div>
 
         <div class="glass" style="grid-column: 1 / -1;">
@@ -147,65 +169,139 @@ function fmtTime(d) {
     return new Date(d).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'});
 }
 
+function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+
+const API_BASE = window.location.pathname.startsWith('/dashboard') ? '/dashboard/api' : '/api';
+
 async function get(endpoint) {
-    try { return await (await fetch('/api/' + endpoint)).json(); } catch(e) { return {}; }
+    try { return await (await fetch(API_BASE + '/' + endpoint)).json(); } catch(e) { return {}; }
+}
+
+async function post(endpoint, body) {
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body || {})
+    });
+    return res.json();
 }
 
 async function load() {
     document.body.style.opacity = '0.7';
-    const [s, m, p, sk, mem, is, td] = await Promise.all([
-        get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos')
+    const [s, m, p, sk, mem, is, td, ac] = await Promise.all([
+        get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos'), get('actions')
     ]);
 
-    document.getElementById('cpu').textContent = (s.cpu_percent ?? '--') + '%';
-    document.getElementById('ram').textContent = (s.ram_gb ?? '--') + ' / ' + (s.ram_total_gb ?? '--') + ' GB';
-    document.getElementById('disk').textContent = (s.disk_gb ?? '--') + ' / ' + (s.disk_total_gb ?? '--') + ' GB';
-    document.getElementById('uptime').textContent = s.uptime ?? '--';
+    document.getElementById('cpu').textContent = (escapeHtml(s.cpu_percent) || '--') + '%';
+    document.getElementById('ram').textContent = (escapeHtml(s.ram_gb) || '--') + ' / ' + (escapeHtml(s.ram_total_gb) || '--') + ' GB';
+    document.getElementById('disk').textContent = (escapeHtml(s.disk_gb) || '--') + ' / ' + (escapeHtml(s.disk_total_gb) || '--') + ' GB';
+    document.getElementById('uptime').textContent = escapeHtml(s.uptime) || '--';
 
     document.getElementById('monitor-pulse').className = 'pulse ' + ((m.lastRateLimitCount||0)>0 ? 'amber' : 'green');
     document.getElementById('last-check').textContent = m.lastCheckAt ? fmtTime(m.lastCheckAt) : 'Never';
-    document.getElementById('rate-limits').textContent = m.lastRateLimitCount ?? 0;
+    document.getElementById('rate-limits').textContent = escapeHtml(m.lastRateLimitCount) || 0;
     document.getElementById('rate-limits').className = 'val ' + ((m.lastRateLimitCount||0)>0 ? 'error' : '');
     document.getElementById('last-alert').textContent = m.lastAlertAt ? fmtTime(m.lastAlertAt) : 'None';
 
-    document.getElementById('providers').innerHTML = (p.providers||[]).map(x => `
-        <div class="provider"><span class="provider-name">${x.name}</span>
-        <div style="display:flex;align-items:center"><span class="provider-msg">${x.message}</span><span class="badge ${x.status}">${x.status}</span></div></div>
-    `).join('');
+    const providers = p.providers || [];
+    document.getElementById('providers').innerHTML = providers.length
+      ? providers.map(x => {
+          const safeStatus = x.status === 'ok' ? 'ok' : 'missing';
+          return `<div class="provider"><span class="provider-name">${escapeHtml(x.name)}</span>
+            <div style="display:flex;align-items:center"><span class="provider-msg">${escapeHtml(x.message)}</span><span class="badge ${safeStatus}">${escapeHtml(x.status || 'unknown')}</span></div></div>`;
+        }).join('')
+      : '<div class="nominal">No providers detected</div>';
 
-    document.getElementById('skills').innerHTML = (sk.skills||[]).map(x =>
-        `<div class="skill ${x.installed?'installed':'missing'}" title="${x.description||''}">${x.name}</div>`
-    ).join('');
+    const skills = sk.skills || [];
+    document.getElementById('skills').innerHTML = skills.length
+      ? skills.map(x =>
+        `<div class="skill ${x.installed?'installed':'missing'}" title="${escapeHtml(x.description||'')}">${escapeHtml(x.name)}</div>`
+      ).join('')
+      : '<div class="nominal">No skills data</div>';
 
     document.getElementById('mem-date').textContent = mem.date ? '(' + mem.date + ')' : '';
     document.getElementById('memory-content').textContent = mem.content || 'No memory files';
     document.getElementById('date-chips').innerHTML = (mem.all_dates||[]).map(d =>
-        `<div class="chip ${d===mem.date?'active':''}" onclick="switchMem('${d}')">${d}</div>`
+        `<div class="chip ${d===mem.date?'active':''}" data-date="${escapeHtml(d)}" onclick="switchMem(this.getAttribute('data-date'), this)">${escapeHtml(d)}</div>`
     ).join('');
 
     const iel = document.getElementById('issues');
     if (is.nominal) iel.innerHTML = '<div class="nominal">All systems nominal</div>';
-    else iel.innerHTML = (is.issues||[]).map(i => `<div class="issue ${i.level}">${i.message}</div>`).join('');
+    else iel.innerHTML = (is.issues||[]).map(i => `<div class="issue ${escapeHtml(i.level)}">${escapeHtml(i.message)}</div>`).join('');
 
-    document.getElementById('todo-summary').textContent = `${td.done ?? 0} / ${td.total ?? 0} done`;
-    document.getElementById('todo-percent').textContent = `${td.percent ?? 0}%`;
-    document.getElementById('todo-fill').style.width = `${td.percent ?? 0}%`;
+    const actions = ac.actions || [];
+    document.getElementById('action-grid').innerHTML = actions.length
+      ? actions.map(a => `<button class="action-btn" ${a.cooldown_left > 0 ? 'disabled' : ''} onclick="runAction('${escapeHtml(a.id)}')">${escapeHtml(a.label)}${a.cooldown_left > 0 ? `\n(cooldown: ${escapeHtml(a.cooldown_left)}s)` : ''}</button>`).join('')
+      : '<div class="nominal">No actions configured</div>';
+
+    document.getElementById('todo-summary').textContent = `${escapeHtml(td.done) || 0} / ${escapeHtml(td.total) || 0} done`;
+    document.getElementById('todo-percent').textContent = `${escapeHtml(td.percent) || 0}%`;
+    document.getElementById('todo-fill').style.width = `${escapeHtml(td.percent) || 0}%`;
     const tel = document.getElementById('todo-list');
-    tel.innerHTML = (td.items||[]).length
-      ? (td.items||[]).map(t => `<div class="todo-item ${t.done ? 'done' : ''}">${t.done ? '✅' : '⬜'} ${t.text}</div>`).join('')
-      : '<div class="nominal">No TODO items yet</div>';
+    const projects = td.projects || [];
+    tel.innerHTML = projects.length
+      ? projects.map(p => `
+        <div class="todo-project">
+          <div class="todo-project-head">
+            <div class="todo-project-name">${escapeHtml(p.name)}</div>
+            <div class="todo-project-meta">${escapeHtml(p.done)}/${escapeHtml(p.total)} • ${escapeHtml(p.percent)}%</div>
+          </div>
+          <div class="todo-items">
+            ${(p.items||[]).map(t => `<div class="todo-item ${t.done ? 'done' : ''}"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;"><input type="checkbox" ${t.done ? 'checked' : ''} data-path="${escapeHtml(p.path)}" data-lineno="${t.line_no ?? -1}" data-done="${t.done ? 'true' : 'false'}" onchange="toggleTodo(this.getAttribute('data-path'), parseInt(this.getAttribute('data-lineno'), 10), this.getAttribute('data-done') === 'true')" /> <span>${escapeHtml(t.text)}</span></label></div>`).join('')}
+          </div>
+        </div>
+      `).join('')
+      : '<div class="nominal">No TODO items found in project TODO.md files</div>';
 
     document.getElementById('last-refresh').textContent = fmtTime(new Date());
     nextRefresh = Date.now() + REFRESH_INTERVAL * 1000;
     document.body.style.opacity = '1';
 }
 
-async function switchMem(date) {
-    const d = await get('memory?date=' + date);
+async function switchMem(date, el) {
+    const d = await get('memory?date=' + encodeURIComponent(date));
     document.getElementById('memory-content').textContent = d.content || 'No data';
     document.getElementById('mem-date').textContent = '(' + (d.date||'') + ')';
     document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    event.target.classList.add('active');
+    if (el) el.classList.add('active');
+}
+
+async function toggleTodo(path, lineNo, currentDone) {
+    try {
+        const r = await post(API_BASE + '/todos/toggle', { path, line_no: lineNo, done: !currentDone });
+        if (!r.ok) {
+            alert('Update failed: ' + (r.error || 'unknown error'));
+            return;
+        }
+        await load();
+    } catch (e) {
+        alert('Update failed: ' + e.message);
+    }
+}
+
+async function runAction(actionId) {
+    const out = document.getElementById('action-result');
+    out.textContent = `Running ${actionId} ...`;
+    try {
+        const r = await post(API_BASE + '/actions/run', { action: actionId });
+        if (!r.ok) {
+            out.textContent = `[FAIL] ${r.label || actionId}\nerror: ${r.error || 'unknown'}\n${r.stderr || ''}`.trim();
+            await load();
+            return;
+        }
+        const summary = [
+            `[OK] ${r.label || actionId}`,
+            `exit: ${r.exit_code}`,
+            r.stdout ? `stdout:\n${r.stdout}` : '',
+            r.stderr ? `stderr:\n${r.stderr}` : '',
+        ].filter(Boolean).join('\n\n');
+        out.textContent = summary;
+        await load();
+    } catch (e) {
+        out.textContent = `[FAIL] ${actionId}\n${e.message}`;
+    }
 }
 
 setInterval(() => {
