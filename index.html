@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenClaw Command Center</title>
+    <title>Homie's Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -40,7 +40,15 @@
         .grid { display: grid; gap: 20px; margin-bottom: 24px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
         .status-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         @media (max-width: 1024px) { .status-row { grid-template-columns: repeat(2, 1fr); } .memory-panel { grid-column: 1 / -1 !important; } }
-        @media (max-width: 640px) { .status-row { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } .meta { gap: 12px; font-size: 12px; } }
+        @media (max-width: 640px) { 
+            .status-row { grid-template-columns: repeat(2, 1fr); gap: 12px; } 
+            .stat .val { font-size: 22px; margin: 4px 0; }
+            .grid { grid-template-columns: 1fr; gap: 12px; } 
+            .glass { padding: 15px; }
+            .meta { gap: 12px; font-size: 12px; } 
+            .action-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+            .action-btn { font-size: 11px; padding: 8px; text-align: center; height: 100%; display: flex; align-items: center; justify-content: center; }
+        }
         .stat { text-align: center; }
         .stat .val { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 500; color: var(--cyan); margin: 8px 0; }
         .stat .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
@@ -68,9 +76,35 @@
         .date-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
         .chip { padding: 4px 10px; border-radius: 20px; font-size: 11px; background: rgba(255,255,255,0.05); color: var(--muted); cursor: pointer; transition: all 0.2s; }
         .chip:hover, .chip.active { background: var(--cyan); color: #000; }
-        .issue { padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+        
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .tab { padding: 8px 16px; font-size: 14px; font-weight: 500; color: var(--muted); background: transparent; border: none; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+        .tab:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .tab.active { background: rgba(0,212,255,0.15); color: var(--cyan); border-bottom: 2px solid var(--cyan); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }
+        .agent-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .agent-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .agent-name { font-size: 14px; font-weight: 600; color: #fff; }
+        .agent-type { font-size: 11px; text-transform: uppercase; color: var(--cyan); background: rgba(0,212,255,0.1); padding: 3px 8px; border-radius: 12px; }
+        .agent-body { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+        .agent-row { display: flex; justify-content: space-between; }
+        .agent-lbl { color: var(--muted); }
+        .agent-val { font-family: 'JetBrains Mono', monospace; }
+        .agent-status { display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.idle { background: var(--muted); }
+        .status-dot.working { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+        .status-dot.error { background: var(--error); box-shadow: 0 0 8px var(--error); }
+        .issue { padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 11px; font-family: 'JetBrains Mono', monospace; word-break: break-word; }
         .issue.error { background: rgba(239,68,68,0.1); border-left: 3px solid var(--error); }
         .issue.warning { background: rgba(245,158,11,0.1); border-left: 3px solid var(--warn); }
+        .issues-container { max-height: 250px; overflow-y: auto; padding-right: 4px; }
+        .issues-container::-webkit-scrollbar { width: 4px; }
+        .issues-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
         .nominal { padding: 20px; text-align: center; color: var(--ok); font-size: 14px; }
         .provider-name { font-weight: 500; }
         .provider-msg { font-size: 11px; color: var(--muted); margin-right: 8px; }
@@ -80,22 +114,32 @@
         .progress-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--cyan),var(--purple)); transition:width .3s ease; }
         .todo-list { font-size:13px; display:flex; flex-direction:column; gap:12px; }
         .todo-project { padding:10px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); }
-        .todo-project-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+        .todo-project-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; cursor:pointer; padding: 4px; border-radius: 4px; transition: background 0.2s; }
+        .todo-project-head:hover { background: rgba(255,255,255,0.08); }
+        .todo-items { display:none; flex-direction:column; gap:8px; margin-top: 8px; }
+        .todo-project.active .todo-items { display:flex; }
+        .accordion-icon { transition: transform 0.2s; display: inline-block; width: 12px; }
+        .todo-project.active .accordion-icon { transform: rotate(90deg); }
         .todo-project-name { font-weight:600; color:var(--cyan); }
         .todo-project-meta { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); }
-        .todo-items { display:flex; flex-direction:column; gap:8px; }
+
         .todo-item { padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.04); }
         .todo-item.done { opacity:.65; text-decoration:line-through; }
         .action-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:10px; }
-        .action-btn { text-align:left; font-size:12px; padding:10px 12px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text); border-radius:8px; cursor:pointer; }
+        .action-btn { text-align:center; display: flex; align-items: center; justify-content: center; font-size:12px; padding:10px 12px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text); border-radius:8px; cursor:pointer; min-height: 44px; }
         .action-btn:hover { border-color: rgba(0,212,255,0.4); color: var(--cyan); }
         .action-btn:disabled { opacity:0.5; cursor:not-allowed; }
-        .action-result { margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; color:var(--muted); background:rgba(0,0,0,.2); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:44px; }
+        .action-result { margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; color:var(--muted); background:rgba(0,0,0,.2); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:44px; max-height:250px; overflow-y:auto; }
+
+        @media (max-width: 640px) { 
+            .action-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+            .action-btn { font-size: 11px; padding: 8px; min-height: 50px; }
+        }
     </style>
 </head>
 <body>
     <header>
-        <h1>OpenClaw Command Center</h1>
+        <h1>Homie's Dashboard</h1>
         <div class="meta">
             <span class="live" id="clock">--:--:--</span>
             <span id="last-refresh">--:--:--</span>
@@ -109,8 +153,14 @@
         </div>
     </header>
 
-    <div class="grid">
-        <div class="status-row">
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('overview')">System Overview</button>
+        <button class="tab" onclick="switchTab('agents')">Agent Fleet</button>
+    </div>
+
+    <div id="tab-overview" class="tab-content active">
+        <div class="grid">
+            <div class="status-row">
             <div class="glass stat"><div class="lbl">CPU</div><div class="val" id="cpu">--%</div></div>
             <div class="glass stat"><div class="lbl">RAM</div><div class="val" id="ram">-- / -- GB</div></div>
             <div class="glass stat"><div class="lbl">Disk</div><div class="val" id="disk">-- / -- GB</div></div>
@@ -140,9 +190,9 @@
             <div class="memory-content" id="memory-content">Loading...</div>
         </div>
 
-        <div class="glass">
+        <div class="glass" style="grid-column: 1 / -1;">
             <div class="panel-header">Alerts Panel</div>
-            <div id="issues">Loading...</div>
+            <div id="issues" class="issues-container">Loading...</div>
         </div>
 
         <div class="glass" style="grid-column: 1 / -1;">
@@ -161,9 +211,120 @@
         </div>
     </div>
 
+    </div>
+
+    <div id="tab-agents" class="tab-content">
+        <div class="agent-grid" id="agent-grid">
+            <div style="color:var(--muted); padding:20px; text-align:center; width:100%; grid-column:1/-1;">Loading agent fleet...</div>
+        </div>
+    </div>
+
 <script>
+let currentTab = 'overview';
+const API_BASE = window.location.pathname.startsWith("/dashboard") ? "/dashboard/api" : "/api";
+
+function switchTab(tabId) {
+    currentTab = tabId;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    
+    document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    
+    if (tabId === 'agents') {
+        loadAgents();
+    }
+}
+
+async function loadAgents() {
+    try {
+        const r = await fetch(API_BASE + '/agents').then(r => r.json());
+        if (!r.ok || !r.sessions) throw new Error(r.error || 'Failed to load agents');
+        
+        const grid = document.getElementById('agent-grid');
+        
+        // Filter out crons and only keep currently working agents (updated in last 2 mins or actively aborted)
+        const workingAgents = r.sessions.filter(s => {
+            const isCron = (s.key || '').includes('cron:');
+            if (isCron) return false;
+            
+            const isActiveNow = s.ageMs < 120000;
+            const hasError = s.abortedLastRun === true;
+            return isActiveNow || hasError;
+        });
+
+        if (workingAgents.length === 0) {
+            grid.innerHTML = `<div style="color:var(--muted); padding:20px; text-align:center; width:100%; grid-column:1/-1;">No agents are currently working.</div>`;
+            return;
+        }
+
+        const cards = workingAgents.map(s => {
+            const key = s.key || '';
+            const sessionId = s.sessionId || 'unknown';
+            const isGroup = s.kind === 'group';
+            
+            let typeName = 'Main Session';
+            if (s.agentId !== 'main') typeName = `Sub-agent (${s.agentId || 'unknown'})`;
+            else if (isGroup) typeName = 'Group Chat';
+
+            const isActiveNow = s.ageMs < 120000; // Updated in last 2 mins
+            let statusClass = isActiveNow ? 'working' : 'idle';
+            let statusText = isActiveNow ? 'Working' : 'Idle';
+
+            // Aborted or failed
+            if (s.abortedLastRun) {
+                statusClass = 'error';
+                statusText = 'Aborted / Error';
+            }
+
+            const formatTime = (ms) => {
+                if (!ms && ms !== 0) return 'unknown';
+                if (ms < 60000) return `${Math.floor(ms/1000)}s ago`;
+                if (ms < 3600000) return `${Math.floor(ms/60000)}m ago`;
+                return `${Math.floor(ms/3600000)}h ago`;
+            };
+            
+            const shortId = sessionId.length > 8 ? `${sessionId.substring(0, 8)}...${sessionId.slice(-4)}` : sessionId;
+
+            return `
+            <div class="agent-card">
+                <div class="agent-header">
+                    <span class="agent-name" title="${key}">${shortId}</span>
+                    <span class="agent-type">${typeName}</span>
+                </div>
+                <div class="agent-body">
+                    <div class="agent-row">
+                        <span class="agent-lbl">Status</span>
+                        <div class="agent-status"><div class="status-dot ${statusClass}"></div><span class="agent-val">${statusText}</span></div>
+                    </div>
+                    <div class="agent-row"><span class="agent-lbl">Model</span><span class="agent-val">${s.model || 'unknown'}</span></div>
+                    <div class="agent-row"><span class="agent-lbl">Tokens</span><span class="agent-val">${(s.totalTokens || 0).toLocaleString()}</span></div>
+                    <div class="agent-row"><span class="agent-lbl">Last Active</span><span class="agent-val">${formatTime(s.ageMs)}</span></div>
+                </div>
+            </div>`;
+        }).join('');
+        
+        grid.innerHTML = cards;
+    } catch (e) {
+        document.getElementById('agent-grid').innerHTML = `<div style="color:var(--error); padding:20px; text-align:center; width:100%; grid-column:1/-1;">Error: ${e.message}</div>`;
+    }
+}
+
 const REFRESH_INTERVAL = 30;
 let nextRefresh = Date.now() + REFRESH_INTERVAL * 1000;
+let openProjects = new Set();
+
+function toggleProjectAccordion(projectName) {
+    if (openProjects.has(projectName)) {
+        openProjects.delete(projectName);
+    } else {
+        openProjects.add(projectName);
+    }
+    const projectDiv = document.getElementById("project-" + projectName.replace(/[^a-zA-Z0-9]/g, ""));
+    if (projectDiv) {
+        projectDiv.classList.toggle("active");
+    }
+}
 
 function fmtTime(d) {
     return new Date(d).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'});
@@ -173,7 +334,6 @@ function escapeHtml(v) {
     return String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
 }
 
-const API_BASE = window.location.pathname.startsWith('/dashboard') ? '/dashboard/api' : '/api';
 
 async function get(endpoint) {
     try { return await (await fetch(API_BASE + '/' + endpoint)).json(); } catch(e) { return {}; }
@@ -190,6 +350,7 @@ async function post(endpoint, body) {
 
 async function load() {
     document.body.style.opacity = '0.7';
+    if (currentTab === 'agents') loadAgents();
     const [s, m, p, sk, mem, is, td, ac] = await Promise.all([
         get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos'), get('actions')
     ]);
@@ -243,9 +404,9 @@ async function load() {
     const projects = td.projects || [];
     tel.innerHTML = projects.length
       ? projects.map(p => `
-        <div class="todo-project">
-          <div class="todo-project-head">
-            <div class="todo-project-name">${escapeHtml(p.name)}</div>
+        <div class="todo-project ${openProjects.has(p.name) ? 'active' : ''}" id="project-${p.name.replace(/[^a-zA-Z0-9]/g, '')}">
+          <div class="todo-project-head" onclick="toggleProjectAccordion('${p.name}')">
+            <div class="todo-project-name"><span class="accordion-icon">▶</span> ${escapeHtml(p.name)}</div>
             <div class="todo-project-meta">${escapeHtml(p.done)}/${escapeHtml(p.total)} • ${escapeHtml(p.percent)}%</div>
           </div>
           <div class="todo-items">

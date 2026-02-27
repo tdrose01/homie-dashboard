@@ -35,7 +35,7 @@ ACTION_MAP = {
     },
     "check_gateway_health": {
         "label": "Check OpenClaw Gateway health",
-        "cmd": ["openclaw", "health"],
+        "cmd": ["/home/rosebud0585/.npm-global/bin/openclaw", "health"],
         "timeout": 15,
     },
 }
@@ -108,29 +108,28 @@ def parse_activities(limit=50):
     for fname in files[:7]:
         date = fname.replace('.md', '')
         try:
-            with open(f"{MEMORY_DIR}/{fname}") as f:
-                content = f.read()
-            for line in content.split('\n'):
-                line = line.strip()
-                if not line or len(line) < 10:
-                    continue
-                if line.startswith('# MEMORY') or line.startswith('---') or line.startswith('Last updated'):
-                    continue
-                typ, icon, color = 'note', '•', 'cyan'
-                lo = line.lower()
-                if any(k in lo for k in ['complete','done','finish','success']): typ, icon, color = 'complete', '✓', 'green'
-                elif any(k in lo for k in ['error','fail','crash','broken']): typ, icon, color = 'error', '!', 'red'
-                elif any(k in lo for k in ['warning','alert','timeout','429']): typ, icon, color = 'warning', '⚠', 'amber'
-                elif any(k in lo for k in ['create','add','new','build']): typ, icon = 'create', '+'
-                elif any(k in lo for k in ['update','change','modify','edit']): typ, icon = 'update', '⟳'
-                elif any(k in lo for k in ['delete','remove','clean','prune']): typ, icon = 'delete', '−'
-                elif any(k in lo for k in ['install','setup','configure']): typ, icon = 'setup', '⚙'
-                elif any(k in lo for k in ['run','execute','start','launch']): typ, icon = 'run', '▶'
-                elif line.startswith('#'): typ, icon, color = 'section', '◆', 'purple'
-                acts.append({'date': date, 'message': line[:100], 'type': typ, 'icon': icon, 'color': color})
-                if len(acts) >= limit:
-                    break
-        except:
+            with open(f"{MEMORY_DIR}/{fname}", "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or len(line) < 10:
+                        continue
+                    if line.startswith('# MEMORY') or line.startswith('---') or line.startswith('Last updated'):
+                        continue
+                    typ, icon, color = 'note', '•', 'cyan'
+                    lo = line.lower()
+                    if any(k in lo for k in ['complete','done','finish','success']): typ, icon, color = 'complete', '✓', 'green'
+                    elif any(k in lo for k in ['error','fail','crash','broken']): typ, icon, color = 'error', '!', 'red'
+                    elif any(k in lo for k in ['warning','alert','timeout','429']): typ, icon, color = 'warning', '⚠', 'amber'
+                    elif any(k in lo for k in ['create','add','new','build']): typ, icon = 'create', '+'
+                    elif any(k in lo for k in ['update','change','modify','edit']): typ, icon = 'update', '⟳'
+                    elif any(k in lo for k in ['delete','remove','clean','prune']): typ, icon = 'delete', '−'
+                    elif any(k in lo for k in ['install','setup','configure']): typ, icon = 'setup', '⚙'
+                    elif any(k in lo for k in ['run','execute','start','launch']): typ, icon = 'run', '▶'
+                    elif line.startswith('#'): typ, icon, color = 'section', '◆', 'purple'
+                    acts.append({'date': date, 'message': line[:100], 'type': typ, 'icon': icon, 'color': color})
+                    if len(acts) >= limit:
+                        break
+        except Exception as e:
             pass
         if len(acts) >= limit:
             break
@@ -349,6 +348,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             path = self.path.split("?")[0]
+            if path.startswith("/dashboard"):
+                path = path[10:]
             length = int(self.headers.get("Content-Length", "0"))
             body = self.rfile.read(length).decode() if length else "{}"
             payload = json.loads(body or "{}")
@@ -377,6 +378,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             path = self.path.split("?")[0]
+            if path.startswith("/dashboard"):
+                path = path[10:]
+            if not path or path == "":
+                path = "/"
             params = {}
             if "?" in self.path:
                 for p in self.path.split("?")[1].split("&"):
@@ -401,6 +406,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         self.send_json(json.load(f))
                 except:
                     self.send_json({"lastCheckAt": None, "lastRateLimitCount": 0, "lastAlertAt": None})
+            elif path == "/api/agents":
+                try:
+                    proc = subprocess.run(
+                        ["/home/rosebud0585/.npm-global/bin/openclaw", "sessions", "--all-agents", "--active", "1440", "--json"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if proc.returncode == 0:
+                        data = json.loads(proc.stdout)
+                        self.send_json({"ok": True, "sessions": data.get("sessions", [])})
+                    else:
+                        self.send_json({"ok": False, "error": proc.stderr})
+                except Exception as e:
+                    self.send_json({"ok": False, "error": str(e)})
             elif path == "/api/providers":
                 # Reflect current setup (Feb 2026):
                 # - Antigravity (Gemini Pro High/Low) is primary "big brain"
