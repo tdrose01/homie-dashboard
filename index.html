@@ -99,12 +99,20 @@
         .status-dot.idle { background: var(--muted); }
         .status-dot.working { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
         .status-dot.error { background: var(--error); box-shadow: 0 0 8px var(--error); }
-        .issue { padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 11px; font-family: 'JetBrains Mono', monospace; word-break: break-word; }
-        .issue.error { background: rgba(239,68,68,0.1); border-left: 3px solid var(--error); }
-        .issue.warning { background: rgba(245,158,11,0.1); border-left: 3px solid var(--warn); }
-        .issues-container { max-height: 250px; overflow-y: auto; padding-right: 4px; }
-        .issues-container::-webkit-scrollbar { width: 4px; }
-        .issues-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .issues-container { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+        .alert-card { background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; transition:transform 0.2s, box-shadow 0.2s; }
+        .alert-card:hover { transform:translateY(-2px); box-shadow:0 4px 20px rgba(0,0,0,0.2); }
+        .alert-card.error { border-top:2px solid var(--error); }
+        .alert-card.warning { border-top:2px solid var(--warn); }
+        .alert-head { display:flex; align-items:center; gap:8px; }
+        .alert-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; flex-shrink:0; }
+        .alert-card.error .alert-icon { background:rgba(239,68,68,0.15); color:var(--error); }
+        .alert-card.warning .alert-icon { background:rgba(245,158,11,0.15); color:var(--warn); }
+        .alert-badge { font-size:10px; text-transform:uppercase; font-weight:600; letter-spacing:0.05em; }
+        .alert-card.error .alert-badge { color:var(--error); }
+        .alert-card.warning .alert-badge { color:var(--warn); }
+        .alert-msg { font-family:'JetBrains Mono',monospace; font-size:12px; line-height:1.5; color:var(--muted); word-break:break-word; }
+        @media (max-width: 640px) { .issues-container { grid-template-columns:1fr; } }
         .nominal { padding: 20px; text-align: center; color: var(--ok); font-size: 14px; }
         .provider-name { font-weight: 500; }
         .provider-msg { font-size: 11px; color: var(--muted); margin-right: 8px; }
@@ -186,7 +194,9 @@
         body.compact .memory-content { max-height:180px; font-size:11px; line-height:1.4; }
         body.compact .row { padding:6px 0; }
         body.compact .row .lbl, body.compact .row .val { font-size:12px; }
-        body.compact .issue { padding:4px 8px; font-size:10px; }
+        body.compact .alert-card { padding:10px 12px; gap:6px; }
+        body.compact .alert-msg { font-size:11px; }
+        body.compact .alert-icon { width:24px; height:24px; font-size:11px; }
         body.compact .todo-item { padding:5px 8px; font-size:12px; }
         body.compact .action-btn { padding:6px 8px; font-size:11px; min-height:36px; }
         body.compact .action-result { font-size:11px; padding:8px; min-height:32px; max-height:150px; }
@@ -293,8 +303,9 @@
         <div class="glass" style="grid-column: 1 / -1;">
             <div class="panel-header">Alerts Panel</div>
             <div id="issues" class="issues-container">
-                <div class="skel skel-card" style="height:30px"></div>
-                <div class="skel skel-card" style="height:30px"></div>
+                <div class="skel" style="height:80px;border-radius:10px"></div>
+                <div class="skel" style="height:80px;border-radius:10px"></div>
+                <div class="skel" style="height:80px;border-radius:10px"></div>
             </div>
         </div>
 
@@ -550,8 +561,19 @@ async function load() {
     ).join('');
 
     const iel = document.getElementById('issues');
-    if (is.nominal) iel.innerHTML = '<div class="nominal">All systems nominal</div>';
-    else iel.innerHTML = (is.issues||[]).map(i => `<div class="issue ${escapeHtml(i.level)}">${escapeHtml(i.message)}</div>`).join('');
+    if (is.nominal) iel.innerHTML = '<div class="nominal" style="grid-column:1/-1">All systems nominal</div>';
+    else iel.innerHTML = (is.issues||[]).map(i => {
+        const isErr = i.level === 'error';
+        const icon = isErr ? '\u2715' : '\u26A0';
+        const label = isErr ? 'Error' : 'Warning';
+        return `<div class="alert-card ${escapeHtml(i.level)}">
+            <div class="alert-head">
+                <div class="alert-icon">${icon}</div>
+                <span class="alert-badge">${label}</span>
+            </div>
+            <div class="alert-msg">${escapeHtml(i.message)}</div>
+        </div>`;
+    }).join('');
 
     const actions = ac.actions || [];
     document.getElementById('action-grid').innerHTML = actions.length
