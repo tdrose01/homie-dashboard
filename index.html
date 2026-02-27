@@ -40,12 +40,12 @@
         .grid { display: grid; gap: 20px; margin-bottom: 24px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
         .status-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         @media (max-width: 1024px) { .status-row { grid-template-columns: repeat(2, 1fr); } .memory-panel { grid-column: 1 / -1 !important; } }
-        @media (max-width: 640px) { 
-            .status-row { grid-template-columns: repeat(2, 1fr); gap: 12px; } 
+        @media (max-width: 640px) {
+            .status-row { grid-template-columns: repeat(2, 1fr); gap: 12px; }
             .stat .val { font-size: 22px; margin: 4px 0; }
-            .grid { grid-template-columns: 1fr; gap: 12px; } 
+            .grid { grid-template-columns: 1fr; gap: 12px; }
             .glass { padding: 15px; }
-            .meta { gap: 12px; font-size: 12px; } 
+            .meta { gap: 12px; font-size: 12px; }
             .action-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
             .action-btn { font-size: 11px; padding: 8px; text-align: center; height: 100%; display: flex; align-items: center; justify-content: center; }
         }
@@ -76,15 +76,15 @@
         .date-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
         .chip { padding: 4px 10px; border-radius: 20px; font-size: 11px; background: rgba(255,255,255,0.05); color: var(--muted); cursor: pointer; transition: all 0.2s; }
         .chip:hover, .chip.active { background: var(--cyan); color: #000; }
-        
+
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
         .tab { padding: 8px 16px; font-size: 14px; font-weight: 500; color: var(--muted); background: transparent; border: none; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
         .tab:hover { background: rgba(255,255,255,0.05); color: #fff; }
         .tab.active { background: rgba(0,212,255,0.15); color: var(--cyan); border-bottom: 2px solid var(--cyan); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-        
+
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        
+
         .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }
         .agent-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         .agent-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
@@ -131,13 +131,85 @@
         .action-btn:disabled { opacity:0.5; cursor:not-allowed; }
         .action-result { margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; color:var(--muted); background:rgba(0,0,0,.2); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:44px; max-height:250px; overflow-y:auto; }
 
-        @media (max-width: 640px) { 
+        @media (max-width: 640px) {
             .action-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
             .action-btn { font-size: 11px; padding: 8px; min-height: 50px; }
+        }
+
+        /* Toast notifications */
+        #toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; max-width:380px; }
+        .toast { pointer-events:auto; padding:12px 16px; border-radius:10px; font-size:13px; font-family:'Inter',sans-serif; backdrop-filter:blur(16px); border:1px solid var(--border); color:var(--text); animation:toastIn .3s ease forwards; display:flex; align-items:center; gap:10px; box-shadow:0 4px 24px rgba(0,0,0,0.3); }
+        .toast.error { background:rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.3); }
+        .toast.warn { background:rgba(245,158,11,0.15); border-color:rgba(245,158,11,0.3); }
+        .toast.info { background:rgba(0,212,255,0.12); border-color:rgba(0,212,255,0.25); }
+        .toast.out { animation:toastOut .3s ease forwards; }
+        .toast-icon { flex-shrink:0; font-size:15px; }
+        @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes toastOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(40px)} }
+
+        /* Skeleton loading */
+        .skel { background:rgba(255,255,255,0.04); border-radius:6px; position:relative; overflow:hidden; }
+        .skel::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent); animation:shimmer 1.5s infinite; }
+        @keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+        .skel-line { height:14px; margin-bottom:10px; }
+        .skel-card { height:44px; border-radius:8px; margin-bottom:8px; }
+        .skel-block { height:34px; border-radius:8px; }
+
+        /* Gateway health card */
+        .gw-health { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+        .gw-metric { text-align:center; flex:1; min-width:80px; }
+        .gw-metric .gw-val { font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:500; margin:6px 0; text-transform:capitalize; }
+        .gw-metric .gw-lbl { font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
+        .gw-val.st-active { color:var(--ok); }
+        .gw-val.st-inactive, .gw-val.st-failed, .gw-val.st-deactivating { color:var(--error); }
+        .gw-val.st-activating, .gw-val.st-reloading { color:var(--warn); }
+        .gw-val.st-unknown { color:var(--muted); }
+
+        /* Compact mode toggle */
+        .compact-toggle { display:flex; align-items:center; gap:6px; }
+        .toggle-track { width:34px; height:18px; border-radius:9px; background:rgba(255,255,255,0.08); border:1px solid var(--border); cursor:pointer; position:relative; transition:all .2s; flex-shrink:0; }
+        .toggle-track.on { background:rgba(0,212,255,0.2); border-color:rgba(0,212,255,0.4); }
+        .toggle-thumb { width:14px; height:14px; border-radius:50%; background:var(--muted); position:absolute; top:1px; left:1px; transition:all .2s; }
+        .toggle-track.on .toggle-thumb { left:17px; background:var(--cyan); }
+        .compact-lbl { font-size:11px; color:var(--muted); cursor:pointer; }
+
+        /* Compact mode */
+        body.compact { padding:12px; }
+        body.compact .glass { padding:12px; border-radius:8px; }
+        body.compact .grid { gap:10px; }
+        body.compact .stat .val { font-size:20px; margin:4px 0; }
+        body.compact .stat .lbl { font-size:10px; }
+        body.compact .panel-header { font-size:11px; margin-bottom:10px; }
+        body.compact .provider { padding:6px 10px; margin-bottom:6px; }
+        body.compact .skill { padding:5px 8px; font-size:11px; }
+        body.compact .skills { gap:6px; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); }
+        body.compact .memory-content { max-height:180px; font-size:11px; line-height:1.4; }
+        body.compact .row { padding:6px 0; }
+        body.compact .row .lbl, body.compact .row .val { font-size:12px; }
+        body.compact .issue { padding:4px 8px; font-size:10px; }
+        body.compact .todo-item { padding:5px 8px; font-size:12px; }
+        body.compact .action-btn { padding:6px 8px; font-size:11px; min-height:36px; }
+        body.compact .action-result { font-size:11px; padding:8px; min-height:32px; max-height:150px; }
+        body.compact header { margin-bottom:14px; }
+        body.compact h1 { font-size:20px; }
+        body.compact .meta { font-size:11px; gap:8px; }
+        body.compact .tabs { margin-bottom:12px; padding-bottom:8px; }
+        body.compact .tab { padding:6px 10px; font-size:12px; }
+        body.compact .status-row { gap:10px; }
+        body.compact .agent-card { padding:10px; gap:6px; }
+        body.compact .agent-name { font-size:12px; }
+        body.compact .agent-body { font-size:11px; gap:5px; }
+        body.compact .gw-metric .gw-val { font-size:18px; }
+        body.compact .date-chips { gap:4px; }
+        body.compact .chip { padding:3px 8px; font-size:10px; }
+        @media (max-width: 640px) {
+            .compact-lbl { display:none; }
         }
     </style>
 </head>
 <body>
+    <div id="toast-container"></div>
+
     <header>
         <h1>Homie's Dashboard</h1>
         <div class="meta">
@@ -149,6 +221,12 @@
             </div>
             <div class="header-actions">
                 <button class="btn" onclick="load()">Refresh now</button>
+                <div class="compact-toggle" title="Compact mode">
+                    <span class="compact-lbl" onclick="toggleCompact()">Compact</span>
+                    <div id="compact-track" class="toggle-track" onclick="toggleCompact()">
+                        <div class="toggle-thumb"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -168,6 +246,15 @@
         </div>
 
         <div class="glass">
+            <div class="panel-header"><div class="pulse green" id="gw-pulse"></div>Gateway Health</div>
+            <div class="gw-health" id="gw-health">
+                <div class="gw-metric"><div class="gw-lbl">Status</div><div class="skel" style="height:28px;width:80px;margin:6px auto;border-radius:6px"></div></div>
+                <div class="gw-metric"><div class="gw-lbl">Restarts</div><div class="skel" style="height:28px;width:40px;margin:6px auto;border-radius:6px"></div></div>
+                <div class="gw-metric"><div class="gw-lbl">Last Probe</div><div class="skel" style="height:28px;width:80px;margin:6px auto;border-radius:6px"></div></div>
+            </div>
+        </div>
+
+        <div class="glass">
             <div class="panel-header"><div class="pulse green" id="monitor-pulse"></div>Monitor State</div>
             <div class="row"><span class="lbl">Last Check</span><span class="val" id="last-check">--</span></div>
             <div class="row"><span class="lbl">Rate Limits</span><span class="val" id="rate-limits">--</span></div>
@@ -176,28 +263,48 @@
 
         <div class="glass">
             <div class="panel-header">Provider Status</div>
-            <div id="providers" style="font-size:12px;">Loading...</div>
+            <div id="providers" style="font-size:12px;">
+                <div class="skel skel-card"></div>
+                <div class="skel skel-card"></div>
+                <div class="skel skel-card"></div>
+            </div>
         </div>
 
         <div class="glass" style="grid-column: 1 / -1;">
             <div class="panel-header">Skills Inventory</div>
-            <div class="skills" id="skills">Loading...</div>
+            <div class="skills" id="skills">
+                <div class="skel skel-block"></div><div class="skel skel-block"></div><div class="skel skel-block"></div><div class="skel skel-block"></div>
+                <div class="skel skel-block"></div><div class="skel skel-block"></div><div class="skel skel-block"></div><div class="skel skel-block"></div>
+            </div>
         </div>
 
         <div class="glass memory-panel" style="grid-column: span 2;">
             <div class="panel-header">Memory Log <span id="mem-date" style="color:var(--cyan);"></span></div>
             <div class="date-chips" id="date-chips"></div>
-            <div class="memory-content" id="memory-content">Loading...</div>
+            <div class="memory-content" id="memory-content">
+                <div class="skel skel-line" style="width:92%"></div>
+                <div class="skel skel-line" style="width:78%"></div>
+                <div class="skel skel-line" style="width:85%"></div>
+                <div class="skel skel-line" style="width:60%"></div>
+                <div class="skel skel-line" style="width:70%"></div>
+            </div>
         </div>
 
         <div class="glass" style="grid-column: 1 / -1;">
             <div class="panel-header">Alerts Panel</div>
-            <div id="issues" class="issues-container">Loading...</div>
+            <div id="issues" class="issues-container">
+                <div class="skel skel-card" style="height:30px"></div>
+                <div class="skel skel-card" style="height:30px"></div>
+            </div>
         </div>
 
         <div class="glass" style="grid-column: 1 / -1;">
             <div class="panel-header">Action Center</div>
-            <div id="action-grid" class="action-grid">Loading...</div>
+            <div id="action-grid" class="action-grid">
+                <div class="skel" style="height:44px;border-radius:8px"></div>
+                <div class="skel" style="height:44px;border-radius:8px"></div>
+                <div class="skel" style="height:44px;border-radius:8px"></div>
+            </div>
             <div id="action-result" class="action-result">No actions run yet.</div>
         </div>
 
@@ -207,7 +314,10 @@
                 <div class="progress-row"><span id="todo-summary">0 / 0 done</span><span id="todo-percent">0%</span></div>
                 <div class="progress-bar"><div class="progress-fill" id="todo-fill"></div></div>
             </div>
-            <div class="todo-list" id="todo-list">Loading...</div>
+            <div class="todo-list" id="todo-list">
+                <div class="skel" style="height:50px;border-radius:10px"></div>
+                <div class="skel" style="height:50px;border-radius:10px;margin-top:4px"></div>
+            </div>
         </div>
     </div>
 
@@ -215,7 +325,8 @@
 
     <div id="tab-agents" class="tab-content">
         <div class="agent-grid" id="agent-grid">
-            <div style="color:var(--muted); padding:20px; text-align:center; width:100%; grid-column:1/-1;">Loading agent fleet...</div>
+            <div class="skel" style="height:160px;border-radius:12px"></div>
+            <div class="skel" style="height:160px;border-radius:12px"></div>
         </div>
     </div>
 
@@ -223,14 +334,45 @@
 let currentTab = 'overview';
 const API_BASE = window.location.pathname.startsWith("/dashboard") ? "/dashboard/api" : "/api";
 
+const _recentToasts = new Map();
+function showToast(message, type = 'error') {
+    const key = type + ':' + message;
+    const now = Date.now();
+    if (_recentToasts.has(key) && now - _recentToasts.get(key) < 10000) return;
+    _recentToasts.set(key, now);
+    if (_recentToasts.size > 50) _recentToasts.delete(_recentToasts.keys().next().value);
+    const container = document.getElementById('toast-container');
+    if (container.children.length >= 3) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = { error: '\u2715', warn: '\u26A0', info: '\u2139' };
+    toast.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${escapeHtml(message)}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.classList.add('out'); setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
+function initCompact() {
+    const isCompact = localStorage.getItem('homie-compact') === 'true';
+    document.body.classList.toggle('compact', isCompact);
+    const track = document.getElementById('compact-track');
+    if (track) track.classList.toggle('on', isCompact);
+}
+
+function toggleCompact() {
+    const isCompact = document.body.classList.toggle('compact');
+    localStorage.setItem('homie-compact', String(isCompact));
+    const track = document.getElementById('compact-track');
+    if (track) track.classList.toggle('on', isCompact);
+}
+
 function switchTab(tabId) {
     currentTab = tabId;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-    
+
     document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
     document.getElementById(`tab-${tabId}`).classList.add('active');
-    
+
     if (tabId === 'agents') {
         loadAgents();
     }
@@ -240,14 +382,13 @@ async function loadAgents() {
     try {
         const r = await fetch(API_BASE + '/agents').then(r => r.json());
         if (!r.ok || !r.sessions) throw new Error(r.error || 'Failed to load agents');
-        
+
         const grid = document.getElementById('agent-grid');
-        
-        // Filter out crons and only keep currently working agents (updated in last 2 mins or actively aborted)
+
         const workingAgents = r.sessions.filter(s => {
             const isCron = (s.key || '').includes('cron:');
             if (isCron) return false;
-            
+
             const isActiveNow = s.ageMs < 120000;
             const hasError = s.abortedLastRun === true;
             return isActiveNow || hasError;
@@ -262,16 +403,15 @@ async function loadAgents() {
             const key = s.key || '';
             const sessionId = s.sessionId || 'unknown';
             const isGroup = s.kind === 'group';
-            
+
             let typeName = 'Main Session';
             if (s.agentId !== 'main') typeName = `Sub-agent (${s.agentId || 'unknown'})`;
             else if (isGroup) typeName = 'Group Chat';
 
-            const isActiveNow = s.ageMs < 120000; // Updated in last 2 mins
+            const isActiveNow = s.ageMs < 120000;
             let statusClass = isActiveNow ? 'working' : 'idle';
             let statusText = isActiveNow ? 'Working' : 'Idle';
 
-            // Aborted or failed
             if (s.abortedLastRun) {
                 statusClass = 'error';
                 statusText = 'Aborted / Error';
@@ -283,30 +423,31 @@ async function loadAgents() {
                 if (ms < 3600000) return `${Math.floor(ms/60000)}m ago`;
                 return `${Math.floor(ms/3600000)}h ago`;
             };
-            
+
             const shortId = sessionId.length > 8 ? `${sessionId.substring(0, 8)}...${sessionId.slice(-4)}` : sessionId;
 
             return `
             <div class="agent-card">
                 <div class="agent-header">
-                    <span class="agent-name" title="${key}">${shortId}</span>
-                    <span class="agent-type">${typeName}</span>
+                    <span class="agent-name" title="${escapeHtml(key)}">${escapeHtml(shortId)}</span>
+                    <span class="agent-type">${escapeHtml(typeName)}</span>
                 </div>
                 <div class="agent-body">
                     <div class="agent-row">
                         <span class="agent-lbl">Status</span>
-                        <div class="agent-status"><div class="status-dot ${statusClass}"></div><span class="agent-val">${statusText}</span></div>
+                        <div class="agent-status"><div class="status-dot ${statusClass}"></div><span class="agent-val">${escapeHtml(statusText)}</span></div>
                     </div>
-                    <div class="agent-row"><span class="agent-lbl">Model</span><span class="agent-val">${s.model || 'unknown'}</span></div>
+                    <div class="agent-row"><span class="agent-lbl">Model</span><span class="agent-val">${escapeHtml(s.model || 'unknown')}</span></div>
                     <div class="agent-row"><span class="agent-lbl">Tokens</span><span class="agent-val">${(s.totalTokens || 0).toLocaleString()}</span></div>
                     <div class="agent-row"><span class="agent-lbl">Last Active</span><span class="agent-val">${formatTime(s.ageMs)}</span></div>
                 </div>
             </div>`;
         }).join('');
-        
+
         grid.innerHTML = cards;
     } catch (e) {
-        document.getElementById('agent-grid').innerHTML = `<div style="color:var(--error); padding:20px; text-align:center; width:100%; grid-column:1/-1;">Error: ${e.message}</div>`;
+        showToast('Agent fleet: ' + e.message, 'error');
+        document.getElementById('agent-grid').innerHTML = `<div style="color:var(--error); padding:20px; text-align:center; width:100%; grid-column:1/-1;">Error: ${escapeHtml(e.message)}</div>`;
     }
 }
 
@@ -336,29 +477,49 @@ function escapeHtml(v) {
 
 
 async function get(endpoint) {
-    try { return await (await fetch(API_BASE + '/' + endpoint)).json(); } catch(e) { return {}; }
+    try {
+        const res = await fetch(API_BASE + '/' + endpoint);
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return await res.json();
+    } catch(e) {
+        showToast(`Failed to fetch ${endpoint.split('?')[0]}`, 'error');
+        return {};
+    }
 }
 
 async function post(endpoint, body) {
-    const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body || {})
-    });
-    return res.json();
+    try {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body || {})
+        });
+        return await res.json();
+    } catch(e) {
+        showToast(`Request failed: ${e.message}`, 'error');
+        return { ok: false, error: e.message };
+    }
 }
 
 async function load() {
     document.body.style.opacity = '0.7';
     if (currentTab === 'agents') loadAgents();
-    const [s, m, p, sk, mem, is, td, ac] = await Promise.all([
-        get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos'), get('actions')
+    const [s, m, p, sk, mem, is, td, ac, gw] = await Promise.all([
+        get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos'), get('actions'), get('gateway-health')
     ]);
 
     document.getElementById('cpu').textContent = (escapeHtml(s.cpu_percent) || '--') + '%';
     document.getElementById('ram').textContent = (escapeHtml(s.ram_gb) || '--') + ' / ' + (escapeHtml(s.ram_total_gb) || '--') + ' GB';
     document.getElementById('disk').textContent = (escapeHtml(s.disk_gb) || '--') + ' / ' + (escapeHtml(s.disk_total_gb) || '--') + ' GB';
     document.getElementById('uptime').textContent = escapeHtml(s.uptime) || '--';
+
+    const gwStatus = gw.status || 'unknown';
+    const gwStatusClass = 'st-' + gwStatus.replace(/[^a-z]/g, '');
+    document.getElementById('gw-pulse').className = 'pulse ' + (gwStatus === 'active' ? 'green' : (gwStatus === 'unknown' ? '' : 'amber'));
+    document.getElementById('gw-health').innerHTML =
+        `<div class="gw-metric"><div class="gw-lbl">Status</div><div class="gw-val ${gwStatusClass}">${escapeHtml(gwStatus)}</div></div>` +
+        `<div class="gw-metric"><div class="gw-lbl">Restarts</div><div class="gw-val" style="color:${(gw.restarts||0) > 0 ? 'var(--warn)' : 'var(--cyan)'}">${escapeHtml(gw.restarts ?? '--')}</div></div>` +
+        `<div class="gw-metric"><div class="gw-lbl">Last Probe</div><div class="gw-val" style="color:var(--text);font-size:14px">${gw.last_probe ? fmtTime(gw.last_probe) : '--'}</div></div>`;
 
     document.getElementById('monitor-pulse').className = 'pulse ' + ((m.lastRateLimitCount||0)>0 ? 'amber' : 'green');
     document.getElementById('last-check').textContent = m.lastCheckAt ? fmtTime(m.lastCheckAt) : 'Never';
@@ -406,8 +567,8 @@ async function load() {
       ? projects.map(p => `
         <div class="todo-project ${openProjects.has(p.name) ? 'active' : ''}" id="project-${p.name.replace(/[^a-zA-Z0-9]/g, '')}">
           <div class="todo-project-head" onclick="toggleProjectAccordion('${p.name}')">
-            <div class="todo-project-name"><span class="accordion-icon">▶</span> ${escapeHtml(p.name)}</div>
-            <div class="todo-project-meta">${escapeHtml(p.done)}/${escapeHtml(p.total)} • ${escapeHtml(p.percent)}%</div>
+            <div class="todo-project-name"><span class="accordion-icon">&#9654;</span> ${escapeHtml(p.name)}</div>
+            <div class="todo-project-meta">${escapeHtml(p.done)}/${escapeHtml(p.total)} &bull; ${escapeHtml(p.percent)}%</div>
           </div>
           <div class="todo-items">
             ${(p.items||[]).map(t => `<div class="todo-item ${t.done ? 'done' : ''}"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;"><input type="checkbox" ${t.done ? 'checked' : ''} data-path="${escapeHtml(p.path)}" data-lineno="${t.line_no ?? -1}" data-done="${t.done ? 'true' : 'false'}" onchange="toggleTodo(this.getAttribute('data-path'), parseInt(this.getAttribute('data-lineno'), 10), this.getAttribute('data-done') === 'true')" /> <span>${escapeHtml(t.text)}</span></label></div>`).join('')}
@@ -433,12 +594,12 @@ async function toggleTodo(path, lineNo, currentDone) {
     try {
         const r = await post(API_BASE + '/todos/toggle', { path, line_no: lineNo, done: !currentDone });
         if (!r.ok) {
-            alert('Update failed: ' + (r.error || 'unknown error'));
+            showToast('Todo update failed: ' + (r.error || 'unknown error'), 'warn');
             return;
         }
         await load();
     } catch (e) {
-        alert('Update failed: ' + e.message);
+        showToast('Todo update failed: ' + e.message, 'error');
     }
 }
 
@@ -464,6 +625,8 @@ async function runAction(actionId) {
         out.textContent = `[FAIL] ${actionId}\n${e.message}`;
     }
 }
+
+initCompact();
 
 setInterval(() => {
     document.getElementById('clock').textContent = fmtTime(new Date());

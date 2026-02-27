@@ -421,6 +421,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         self.send_json({"ok": False, "error": proc.stderr})
                 except Exception as e:
                     self.send_json({"ok": False, "error": str(e)})
+            elif path == "/api/gateway-health":
+                result = {"status": "unknown", "restarts": 0, "last_probe": datetime.now().isoformat()}
+                try:
+                    proc = subprocess.run(
+                        ["systemctl", "--user", "is-active", "openclaw-gateway.service"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    result["status"] = proc.stdout.strip() or "unknown"
+                except Exception:
+                    pass
+                try:
+                    proc2 = subprocess.run(
+                        ["systemctl", "--user", "show", "openclaw-gateway.service", "-p", "NRestarts"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if proc2.returncode == 0:
+                        parts = proc2.stdout.strip().split("=", 1)
+                        if len(parts) == 2:
+                            result["restarts"] = int(parts[1])
+                except Exception:
+                    pass
+                self.send_json(result)
             elif path == "/api/providers":
                 # Reflect current setup (Feb 2026):
                 # - Antigravity (Gemini Pro High/Low) is primary "big brain"
