@@ -391,7 +391,7 @@
     <div class="tabs">
         <button class="tab active" onclick="switchTab('overview')">System Overview</button>
         <button class="tab" onclick="switchTab('agents')">Agent Fleet<span id="agent-badge" class="tab-badge" style="display:none"></span></button>
-        <button class="tab" onclick="switchTab('ops')">Ops Intel</button>
+        <button class="tab" onclick="switchTab('ops')">Ops Intel<span id="ops-badge" class="tab-badge" style="display:none;background:var(--warn);color:#000;box-shadow:0 0 6px var(--warn)"></span></button>
     </div>
 
     <div id="tab-overview" class="tab-content active">
@@ -1050,8 +1050,29 @@ function updateAgentBadge() {
         }).catch(() => {});
     } catch(e) {}
 }
+function updateOpsBadge() {
+    try {
+        fetch(API_BASE + '/rate-limits').then(r => r.json()).then(r => {
+            const badge = document.getElementById('ops-badge');
+            if (!badge) return;
+            const limits = r.limits || [];
+            const warnings = limits.filter(l => l.percent > 60).length;
+            if (warnings > 0) {
+                const maxPct = Math.max(...limits.map(l => l.percent));
+                const danger = maxPct > 80;
+                badge.textContent = Math.round(maxPct) + '%';
+                badge.style.display = 'flex';
+                badge.style.background = danger ? 'var(--error)' : 'var(--warn)';
+                badge.style.boxShadow = '0 0 6px ' + (danger ? 'var(--error)' : 'var(--warn)');
+            } else { badge.style.display = 'none'; }
+        }).catch(() => {});
+    } catch(e) {}
+}
+
 setInterval(updateAgentBadge, 30000);
+setInterval(updateOpsBadge, 30000);
 setTimeout(updateAgentBadge, 2000);
+setTimeout(updateOpsBadge, 2500);
 
 let _refreshInterval = setInterval(load, REFRESH_INTERVAL * 1000);
 document.addEventListener('visibilitychange', () => {
