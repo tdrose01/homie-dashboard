@@ -17,10 +17,9 @@ jobs:
 
       - name: Prepare dist
         run: |
-          mkdir -p dist
+          mkdir -p dist dist/api
           cp index.html dist/
           cp README.md dist/
-          # Create a simple API mock for static hosting
           cat > dist/api/status.json << 'EOF'
           {
             "status": "ok",
