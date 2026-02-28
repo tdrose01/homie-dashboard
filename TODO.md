@@ -19,3 +19,9 @@
 - [x] Update `scripts/safe-reload.sh` from `py_compile` to `ast.parse` to avoid `__pycache__` permission regressions.
 - [x] Sync `deploy/DEPLOY_AUTOMATION.md` wording with current `ast.parse` guardrail.
 - [x] Re-validate Tailscale path routing (`/dashboard` and `/dashboard/api`).
+
+## V3 Operations Intelligence (see FEATURE_SCOPE_V3.md)
+- [ ] Cost & token tracking panel (`/api/costs` + frontend stat cards + per-model breakdown)
+- [ ] Cron job monitoring panel (`/api/crons` + frontend table/cards)
+- [ ] Rate limit gauges (`/api/rate-limits` + visual progress bars per provider)
+- [ ] Live activity feed (`/api/feed` SSE + scrolling color-coded event panel)
