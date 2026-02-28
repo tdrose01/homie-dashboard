@@ -88,6 +88,17 @@
 
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .tab { position:relative; }
+        .tab-badge { position:absolute; top:2px; right:2px; min-width:16px; height:16px; border-radius:8px; background:var(--cyan); color:#000; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 4px; box-shadow:0 0 6px var(--cyan); }
+        .confirm-overlay { position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; animation:fadeIn .2s; }
+        .confirm-box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px 28px; max-width:380px; width:90%; backdrop-filter:blur(16px); box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+        .confirm-title { font-size:15px; font-weight:600; margin-bottom:8px; }
+        .confirm-msg { font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.5; }
+        .confirm-actions { display:flex; gap:10px; justify-content:flex-end; }
+        .confirm-actions .btn { padding:8px 18px; font-size:13px; }
+        .confirm-actions .btn.danger { border-color:rgba(239,68,68,0.4); color:var(--error); }
+        .confirm-actions .btn.danger:hover { background:rgba(239,68,68,0.15); }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 
         .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }
         .agent-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
@@ -360,6 +371,7 @@
             </div>
             <div class="header-actions">
                 <button class="btn" onclick="load()">Refresh now</button>
+                <button class="btn" onclick="downloadSnapshot()" title="Download system snapshot">&#8615; Snapshot</button>
                 <button class="btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark theme" style="font-size:14px;padding:5px 10px">&#9788;</button>
                 <div class="compact-toggle" title="Compact mode">
                     <span class="compact-lbl" onclick="toggleCompact()">Compact</span>
@@ -373,7 +385,7 @@
 
     <div class="tabs">
         <button class="tab active" onclick="switchTab('overview')">System Overview</button>
-        <button class="tab" onclick="switchTab('agents')">Agent Fleet</button>
+        <button class="tab" onclick="switchTab('agents')">Agent Fleet<span id="agent-badge" class="tab-badge" style="display:none"></span></button>
         <button class="tab" onclick="switchTab('ops')">Ops Intel</button>
     </div>
 
@@ -825,7 +837,7 @@ async function load() {
     try {
         const actions = ac.actions || [];
         document.getElementById('action-grid').innerHTML = actions.length
-          ? actions.map(a => `<button class="action-btn" ${a.cooldown_left > 0 ? 'disabled' : ''} onclick="runAction('${escapeHtml(a.id)}')">${escapeHtml(a.label)}${a.cooldown_left > 0 ? `\n(cooldown: ${escapeHtml(a.cooldown_left)}s)` : ''}</button>`).join('')
+          ? actions.map(a => `<button class="action-btn" ${a.cooldown_left > 0 ? 'disabled' : ''} onclick="confirmAction('${escapeHtml(a.id)}','${escapeHtml(a.label)}')">${escapeHtml(a.label)}${a.cooldown_left > 0 ? `\n(cooldown: ${escapeHtml(a.cooldown_left)}s)` : ''}</button>`).join('')
           : '<div class="nominal">No actions configured</div>';
     } catch(e) { console.error('Actions panel:', e); }
 
@@ -968,6 +980,73 @@ async function runAction(actionId) {
     }
 }
 
+function updateAgentBadge() {
+    try {
+        fetch(API_BASE + '/agents').then(r => r.json()).then(r => {
+            if (!r.ok || !r.sessions) return;
+            const active = r.sessions.filter(s => !(s.key||'').includes('cron:') && (s.ageMs < 120000 || s.abortedLastRun)).length;
+            const badge = document.getElementById('agent-badge');
+            if (!badge) return;
+            if (active > 0) { badge.textContent = active; badge.style.display = 'flex'; }
+            else { badge.style.display = 'none'; }
+        }).catch(() => {});
+    } catch(e) {}
+}
+setInterval(updateAgentBadge, 30000);
+setTimeout(updateAgentBadge, 2000);
+
+let _refreshInterval = setInterval(load, REFRESH_INTERVAL * 1000);
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        clearInterval(_refreshInterval);
+        _refreshInterval = null;
+    } else {
+        load();
+        _refreshInterval = setInterval(load, REFRESH_INTERVAL * 1000);
+    }
+});
+
+function confirmAction(actionId, label) {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `<div class="confirm-box">
+        <div class="confirm-title">Confirm Action</div>
+        <div class="confirm-msg">Run <strong>${escapeHtml(label)}</strong>?<br>This will affect the live service.</div>
+        <div class="confirm-actions">
+            <button class="btn" onclick="this.closest('.confirm-overlay').remove()">Cancel</button>
+            <button class="btn danger" onclick="this.closest('.confirm-overlay').remove(); runAction('${escapeHtml(actionId)}')">Run</button>
+        </div>
+    </div>`;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+async function downloadSnapshot() {
+    showToast('Gathering snapshot...', 'info');
+    try {
+        const [status, monitor, providers, skills, issues, todos, actions, gw, costs, crons, rateLimits, feed] = await Promise.all([
+            get('status'), get('monitor'), get('providers'), get('skills'),
+            get('issues'), get('todos'), get('actions'), get('gateway-health'),
+            get('costs'), get('crons'), get('rate-limits'), get('feed')
+        ]);
+        const snapshot = {
+            exported_at: new Date().toISOString(),
+            system: status, monitor, providers, skills, issues, todos,
+            actions, gateway_health: gw, costs, crons, rate_limits: rateLimits, feed
+        };
+        const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `homies-snapshot-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Snapshot downloaded', 'info');
+    } catch(e) {
+        showToast('Snapshot failed: ' + e.message, 'error');
+    }
+}
+
 initCompact();
 initTheme();
 
@@ -989,7 +1068,6 @@ setInterval(() => {
     document.getElementById('countdown').textContent = Math.max(0, Math.ceil((nextRefresh-Date.now())/1000)) + 's';
 }, 1000);
 
-setInterval(load, REFRESH_INTERVAL * 1000);
 load();
 </script>
 </body>

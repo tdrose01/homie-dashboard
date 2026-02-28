@@ -45,9 +45,21 @@
    - Sun/moon button in header; persisted to `localStorage`.
    - Full light-theme CSS: adjusted backgrounds, shadows, text colors, skeletons, toasts, etc.
 
+## Phase 4 (completed)
+
+1. ~~Add notification badge on Agent Fleet tab when agents are active.~~
+   - Polls `/api/agents` every 30s; shows a cyan count badge on the tab when agents are working.
+2. ~~Add per-action confirmation dialog for destructive actions.~~
+   - Glassmorphism modal with Cancel/Run buttons; backdrop click to dismiss.
+   - All Action Center buttons now route through `confirmAction()` before executing.
+3. ~~Add auto-pause refresh when browser tab is hidden (Page Visibility API).~~
+   - Clears the 30s refresh interval when the tab is hidden; resumes with an immediate refresh on return.
+4. ~~Add exportable system snapshot (JSON dump of all panel data).~~
+   - "Snapshot" button in header downloads all 12 endpoints as a single timestamped JSON file.
+
 ## Next (recommended)
 
-1. Add notification badge on Agent Fleet tab when agents are active.
-2. Add per-action confirmation dialog for destructive actions.
-3. Add auto-pause refresh when browser tab is hidden (Page Visibility API).
-4. Add exportable system snapshot (JSON dump of all panel data).
+1. Add notification badge on Ops Intel tab for rate-limit warnings.
+2. Add search/filter to memory log panel.
+3. Add mini sparkline charts for CPU/RAM history in status row.
+4. Add drag-and-drop panel reordering with localStorage persistence.
