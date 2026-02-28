@@ -75,6 +75,12 @@
         .skill.installed { background: rgba(0,212,255,0.15); color: var(--cyan); }
         .skill.missing { background: rgba(255,255,255,0.05); color: var(--muted); }
         .memory-content { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; max-height: 300px; overflow-y: auto; white-space: pre-wrap; color: var(--muted); }
+        .mem-search { width:100%; padding:7px 10px 7px 30px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text); border-radius:8px; font-size:12px; font-family:'JetBrains Mono',monospace; margin-bottom:10px; outline:none; transition:border-color .2s; }
+        .mem-search:focus { border-color:rgba(0,212,255,0.4); }
+        .mem-search-wrap { position:relative; }
+        .mem-search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:12px; pointer-events:none; }
+        .mem-highlight { background:rgba(0,212,255,0.25); border-radius:2px; padding:0 1px; }
+        .mem-count { font-size:11px; color:var(--muted); margin-bottom:6px; font-family:'JetBrains Mono',monospace; }
         .memory-content::-webkit-scrollbar { width: 6px; }
         .memory-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         .date-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
@@ -251,6 +257,7 @@
         body.compact .skill { padding:5px 8px; font-size:11px; }
         body.compact .skills { gap:6px; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); }
         body.compact .memory-content { max-height:180px; font-size:11px; line-height:1.4; }
+        body.compact .mem-search { padding:5px 8px 5px 26px; font-size:11px; }
         body.compact .row { padding:6px 0; }
         body.compact .row .lbl, body.compact .row .val { font-size:12px; }
         body.compact .alert-card { padding:10px 12px; gap:6px; }
@@ -323,6 +330,8 @@
         body.light .toast.warn { background:rgba(245,158,11,0.1); }
         body.light .toast.info { background:rgba(0,140,210,0.08); }
         body.light .memory-content::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.15); }
+        body.light .mem-search { background:rgba(0,0,0,0.04); }
+        body.light .mem-highlight { background:rgba(0,140,210,0.2); }
         body.light .alert-dismiss { background:rgba(0,0,0,0.05); border-color:rgba(0,0,0,0.1); }
         body.light .alert-dismiss:hover { background:rgba(0,0,0,0.1); color:var(--text); }
         body.light .cron-card { background:rgba(0,0,0,0.03); }
@@ -440,6 +449,8 @@
         <div class="glass memory-panel" style="grid-column: span 2;">
             <div class="panel-header">Memory Log <span id="mem-date" style="color:var(--cyan);"></span></div>
             <div class="date-chips" id="date-chips"></div>
+            <div class="mem-search-wrap"><span class="mem-search-icon">&#8981;</span><input class="mem-search" id="mem-search" type="text" placeholder="Filter memory log..." oninput="filterMemory()"></div>
+            <div id="mem-count" class="mem-count" style="display:none"></div>
             <div class="memory-content" id="memory-content">
                 <div class="skel skel-line" style="width:92%"></div>
                 <div class="skel skel-line" style="width:78%"></div>
@@ -734,6 +745,37 @@ function fmtAge(ms) {
     return Math.floor(ms / 86400000) + 'd ago';
 }
 
+let _rawMemoryContent = '';
+
+function filterMemory() {
+    const query = (document.getElementById('mem-search').value || '').trim();
+    const el = document.getElementById('memory-content');
+    const countEl = document.getElementById('mem-count');
+    if (!el || !_rawMemoryContent) return;
+
+    if (!query) {
+        el.textContent = _rawMemoryContent;
+        if (countEl) countEl.style.display = 'none';
+        return;
+    }
+
+    const lines = _rawMemoryContent.split('\n');
+    const re = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const matched = lines.filter(l => re.test(l));
+    re.lastIndex = 0;
+
+    if (matched.length === 0) {
+        el.innerHTML = `<span style="color:var(--muted);opacity:.6">No lines matching "${escapeHtml(query)}"</span>`;
+        if (countEl) { countEl.textContent = `0 / ${lines.length} lines`; countEl.style.display = 'block'; }
+        return;
+    }
+
+    el.innerHTML = matched.map(line => {
+        return escapeHtml(line).replace(new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<span class="mem-highlight">${m}</span>`);
+    }).join('\n');
+    if (countEl) { countEl.textContent = `${matched.length} / ${lines.length} lines`; countEl.style.display = 'block'; }
+}
+
 let _dismissedAlerts = new Set(JSON.parse(localStorage.getItem('homie-dismissed-alerts') || '[]'));
 let _lastIssues = [];
 
@@ -881,7 +923,9 @@ async function load() {
 
     try {
         document.getElementById('mem-date').textContent = mem.date ? '(' + mem.date + ')' : '';
-        document.getElementById('memory-content').textContent = mem.content || 'No memory files';
+        _rawMemoryContent = mem.content || 'No memory files';
+        document.getElementById('memory-content').textContent = _rawMemoryContent;
+        filterMemory();
         document.getElementById('date-chips').innerHTML = (mem.all_dates||[]).map(d =>
             `<div class="chip ${d===mem.date?'active':''}" data-date="${escapeHtml(d)}" onclick="switchMem(this.getAttribute('data-date'), this)">${escapeHtml(d)}</div>`
         ).join('');
@@ -996,7 +1040,9 @@ async function loadOps() {
 
 async function switchMem(date, el) {
     const d = await get('memory?date=' + encodeURIComponent(date));
-    document.getElementById('memory-content').textContent = d.content || 'No data';
+    _rawMemoryContent = d.content || 'No data';
+    document.getElementById('memory-content').textContent = _rawMemoryContent;
+    filterMemory();
     document.getElementById('mem-date').textContent = '(' + (d.date||'') + ')';
     document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
     if (el) el.classList.add('active');
