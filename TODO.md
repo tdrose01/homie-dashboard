@@ -21,7 +21,7 @@
 - [x] Re-validate Tailscale path routing (`/dashboard` and `/dashboard/api`).
 
 ## V3 Operations Intelligence (see FEATURE_SCOPE_V3.md)
-- [ ] Cost & token tracking panel (`/api/costs` + frontend stat cards + per-model breakdown)
-- [ ] Cron job monitoring panel (`/api/crons` + frontend table/cards)
-- [ ] Rate limit gauges (`/api/rate-limits` + visual progress bars per provider)
-- [ ] Live activity feed (`/api/feed` SSE + scrolling color-coded event panel)
+- [x] Cost & token tracking panel (`/api/costs` + frontend stat cards + per-model breakdown)
+- [x] Cron job monitoring panel (`/api/crons` + frontend table/cards)
+- [x] Rate limit gauges (`/api/rate-limits` + visual progress bars per provider)
+- [x] Live activity feed (`/api/feed` + scrolling color-coded event panel)
