@@ -442,6 +442,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                             result["restarts"] = int(parts[1])
                 except Exception:
                     pass
+                try:
+                    proc3 = subprocess.run(
+                        ["systemctl", "--user", "show", "openclaw-gateway.service", "-p", "ActiveEnterTimestamp"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if proc3.returncode == 0:
+                        parts = proc3.stdout.strip().split("=", 1)
+                        if len(parts) == 2 and parts[1].strip():
+                            result["active_since"] = parts[1].strip()
+                except Exception:
+                    pass
                 self.send_json(result)
             elif path == "/api/providers":
                 # Reflect current setup (Feb 2026):

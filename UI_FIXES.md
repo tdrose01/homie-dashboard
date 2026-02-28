@@ -30,9 +30,24 @@
    - Toggle in header persisted to `localStorage`.
    - Reduces padding, font sizes, gaps, and max-heights across all panels.
 
+## Phase 3 (completed)
+
+1. ~~Add service uptime duration to gateway health card.~~
+   - Backend returns `active_since` from `ActiveEnterTimestamp`; frontend computes human-readable duration.
+   - Gateway card now shows 4 metrics: Status, Restarts, Uptime, Last Probe.
+2. ~~Add error boundary for individual panel render failures.~~
+   - Each of the 9 panels in `load()` is wrapped in its own try/catch.
+   - A single broken panel no longer prevents the rest of the dashboard from rendering.
+3. ~~Add keyboard shortcuts (R to refresh, 1/2 for tab switching).~~
+   - `R` refresh, `1` overview tab, `2` agents tab, `T` toggle theme, `C` toggle compact.
+   - Press `?` for an in-app cheat sheet toast.
+4. ~~Add dark/light theme toggle.~~
+   - Sun/moon button in header; persisted to `localStorage`.
+   - Full light-theme CSS: adjusted backgrounds, shadows, text colors, skeletons, toasts, etc.
+
 ## Next (recommended)
 
-1. Add service uptime duration to gateway health card.
-2. Add error boundary for individual panel render failures.
-3. Add keyboard shortcuts (R to refresh, 1/2 for tab switching).
-4. Add dark/light theme toggle.
+1. Add notification badge on Agent Fleet tab when agents are active.
+2. Add per-action confirmation dialog for destructive actions.
+3. Add auto-pause refresh when browser tab is hidden (Page Visibility API).
+4. Add exportable system snapshot (JSON dump of all panel data).
