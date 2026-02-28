@@ -148,6 +148,47 @@
             .action-btn { font-size: 11px; padding: 8px; min-height: 50px; }
         }
 
+        /* V3: Ops Intel */
+        .cost-row { grid-column:1/-1; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+        @media (max-width:640px) { .cost-row { grid-template-columns:1fr; gap:10px; } }
+        .model-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .model-table th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); padding:8px 12px; border-bottom:1px solid var(--border); }
+        .model-table td { padding:8px 12px; border-bottom:1px solid var(--border); font-family:'JetBrains Mono',monospace; font-size:12px; }
+        .model-table tr:last-child td { border-bottom:none; }
+        .model-table .mn { font-family:'Inter',sans-serif; font-weight:500; color:var(--text); }
+        .gauge { margin-bottom:14px; }
+        .gauge:last-child { margin-bottom:0; }
+        .gauge-head { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
+        .gauge-provider { font-weight:500; }
+        .gauge-pct { font-family:'JetBrains Mono',monospace; color:var(--muted); }
+        .gauge-bar { height:8px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden; }
+        .gauge-fill { height:100%; border-radius:999px; transition:width .3s; }
+        .gauge-fill.ok { background:var(--ok); }
+        .gauge-fill.warn { background:var(--warn); }
+        .gauge-fill.danger { background:var(--error); }
+        .gauge-meta { font-size:11px; color:var(--muted); margin-top:4px; font-family:'JetBrains Mono',monospace; }
+        .cron-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+        .cron-card { background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; align-items:center; gap:12px; }
+        .cron-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .cron-dot.active { background:var(--cyan); box-shadow:0 0 6px var(--cyan); }
+        .cron-dot.idle { background:var(--muted); }
+        .cron-dot.error { background:var(--error); box-shadow:0 0 6px var(--error); }
+        .cron-info { flex:1; min-width:0; }
+        .cron-name { font-weight:600; font-size:13px; margin-bottom:2px; }
+        .cron-meta { font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+        .feed { max-height:350px; overflow-y:auto; }
+        .feed::-webkit-scrollbar { width:4px; }
+        .feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+        .feed-entry { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }
+        .feed-entry:last-child { border-bottom:none; }
+        .feed-time { font-family:'JetBrains Mono',monospace; color:var(--muted); flex-shrink:0; font-size:11px; min-width:55px; }
+        .feed-dot { flex-shrink:0; width:6px; height:6px; border-radius:50%; margin-top:5px; }
+        .feed-dot.green { background:var(--ok); } .feed-dot.red { background:var(--error); }
+        .feed-dot.amber { background:var(--warn); } .feed-dot.cyan { background:var(--cyan); }
+        .feed-dot.purple { background:var(--purple); }
+        .feed-msg { color:var(--muted); line-height:1.4; word-break:break-word; }
+        .feed-date { font-size:11px; color:var(--muted); opacity:.6; padding:10px 0 4px; font-family:'JetBrains Mono',monospace; }
+
         /* Toast notifications */
         #toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; max-width:380px; }
         .toast { pointer-events:auto; padding:12px 16px; border-radius:10px; font-size:13px; font-family:'Inter',sans-serif; backdrop-filter:blur(16px); border:1px solid var(--border); color:var(--text); animation:toastIn .3s ease forwards; display:flex; align-items:center; gap:10px; box-shadow:0 4px 24px rgba(0,0,0,0.3); }
@@ -219,6 +260,15 @@
         body.compact .gw-metric .gw-val { font-size:18px; }
         body.compact .date-chips { gap:4px; }
         body.compact .chip { padding:3px 8px; font-size:10px; }
+        body.compact .cost-row { gap:10px; }
+        body.compact .model-table { font-size:11px; }
+        body.compact .model-table th, body.compact .model-table td { padding:5px 8px; }
+        body.compact .gauge { margin-bottom:10px; }
+        body.compact .gauge-head { font-size:12px; }
+        body.compact .cron-card { padding:10px 12px; }
+        body.compact .cron-name { font-size:12px; }
+        body.compact .feed { max-height:250px; }
+        body.compact .feed-entry { font-size:11px; padding:6px 0; }
         @media (max-width: 640px) {
             .compact-lbl { display:none; }
             .logo-icon { width:36px; height:36px; }
@@ -259,6 +309,11 @@
         body.light .toast.warn { background:rgba(245,158,11,0.1); }
         body.light .toast.info { background:rgba(0,140,210,0.08); }
         body.light .memory-content::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.15); }
+        body.light .cron-card { background:rgba(0,0,0,0.03); }
+        body.light .gauge-bar { background:rgba(0,0,0,0.08); }
+        body.light .feed::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.12); }
+        body.light .model-table td { border-color:rgba(0,0,0,0.06); }
+        body.light .model-table th { border-color:rgba(0,0,0,0.08); }
     </style>
 </head>
 <body>
@@ -319,6 +374,7 @@
     <div class="tabs">
         <button class="tab active" onclick="switchTab('overview')">System Overview</button>
         <button class="tab" onclick="switchTab('agents')">Agent Fleet</button>
+        <button class="tab" onclick="switchTab('ops')">Ops Intel</button>
     </div>
 
     <div id="tab-overview" class="tab-content active">
@@ -417,6 +473,53 @@
         </div>
     </div>
 
+    <div id="tab-ops" class="tab-content">
+        <div class="grid">
+            <div class="cost-row">
+                <div class="glass stat"><div class="lbl">Today Cost</div><div class="val" id="cost-today">--</div><div class="lbl" id="cost-today-tok"></div></div>
+                <div class="glass stat"><div class="lbl">All-Time Cost</div><div class="val" id="cost-alltime">--</div><div class="lbl" id="cost-alltime-tok"></div></div>
+                <div class="glass stat"><div class="lbl">Monthly Est.</div><div class="val" id="cost-monthly" style="color:var(--purple)">--</div><div class="lbl" id="cost-sessions"></div></div>
+            </div>
+
+            <div class="glass" style="grid-column:1/-1;">
+                <div class="panel-header">Cost Breakdown by Model</div>
+                <div id="model-breakdown">
+                    <div class="skel" style="height:36px;border-radius:6px;margin-bottom:8px"></div>
+                    <div class="skel" style="height:36px;border-radius:6px;margin-bottom:8px"></div>
+                    <div class="skel" style="height:36px;border-radius:6px"></div>
+                </div>
+            </div>
+
+            <div class="glass" style="grid-column:1/-1;">
+                <div class="panel-header">Rate Limits</div>
+                <div id="rate-limits-panel">
+                    <div class="skel" style="height:40px;border-radius:6px;margin-bottom:10px"></div>
+                    <div class="skel" style="height:40px;border-radius:6px"></div>
+                </div>
+            </div>
+
+            <div class="glass" style="grid-column:1/-1;">
+                <div class="panel-header">Cron Jobs</div>
+                <div id="cron-panel" class="cron-grid">
+                    <div class="skel" style="height:60px;border-radius:10px"></div>
+                    <div class="skel" style="height:60px;border-radius:10px"></div>
+                    <div class="skel" style="height:60px;border-radius:10px"></div>
+                </div>
+            </div>
+
+            <div class="glass" style="grid-column:1/-1;">
+                <div class="panel-header">Live Activity Feed</div>
+                <div id="feed-panel" class="feed">
+                    <div class="skel skel-line" style="width:90%"></div>
+                    <div class="skel skel-line" style="width:75%"></div>
+                    <div class="skel skel-line" style="width:85%"></div>
+                    <div class="skel skel-line" style="width:65%"></div>
+                    <div class="skel skel-line" style="width:80%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <script>
 let currentTab = 'overview';
 const API_BASE = window.location.pathname.startsWith("/dashboard") ? "/dashboard/api" : "/api";
@@ -474,9 +577,8 @@ function switchTab(tabId) {
     document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
     document.getElementById(`tab-${tabId}`).classList.add('active');
 
-    if (tabId === 'agents') {
-        loadAgents();
-    }
+    if (tabId === 'agents') loadAgents();
+    if (tabId === 'ops') loadOps();
 }
 
 async function loadAgents() {
@@ -593,6 +695,28 @@ function escapeHtml(v) {
     return String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
 }
 
+function fmtCost(v) {
+    if (v === undefined || v === null) return '--';
+    if (v === 0) return '$0.00';
+    if (v < 0.01 && v > 0) return '<$0.01';
+    return '$' + v.toFixed(2);
+}
+
+function fmtTokens(v) {
+    if (!v) return '0';
+    if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+    if (v >= 1000) return Math.round(v / 1000) + 'K';
+    return String(v);
+}
+
+function fmtAge(ms) {
+    if (!ms && ms !== 0) return '--';
+    if (ms < 60000) return Math.floor(ms / 1000) + 's ago';
+    if (ms < 3600000) return Math.floor(ms / 60000) + 'm ago';
+    if (ms < 86400000) return Math.floor(ms / 3600000) + 'h ago';
+    return Math.floor(ms / 86400000) + 'd ago';
+}
+
 
 async function get(endpoint) {
     try {
@@ -622,6 +746,7 @@ async function post(endpoint, body) {
 async function load() {
     document.body.style.opacity = '0.7';
     if (currentTab === 'agents') loadAgents();
+    if (currentTab === 'ops') loadOps();
     const [s, m, p, sk, mem, is, td, ac, gw] = await Promise.all([
         get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos'), get('actions'), get('gateway-health')
     ]);
@@ -730,6 +855,75 @@ async function load() {
     document.body.style.opacity = '1';
 }
 
+async function loadOps() {
+    const [costs, rl, crons, feed] = await Promise.all([
+        get('costs'), get('rate-limits'), get('crons'), get('feed')
+    ]);
+
+    try {
+        document.getElementById('cost-today').textContent = fmtCost(costs.today_cost);
+        document.getElementById('cost-today-tok').textContent = costs.today_tokens ? fmtTokens(costs.today_tokens) + ' tokens' : '';
+        document.getElementById('cost-alltime').textContent = fmtCost(costs.alltime_cost);
+        document.getElementById('cost-alltime-tok').textContent = costs.alltime_tokens ? fmtTokens(costs.alltime_tokens) + ' tokens' : '';
+        document.getElementById('cost-monthly').textContent = fmtCost(costs.projected_monthly);
+        document.getElementById('cost-sessions').textContent = costs.session_count ? costs.session_count + ' sessions' : '';
+
+        const models = costs.models || [];
+        document.getElementById('model-breakdown').innerHTML = models.length
+          ? `<table class="model-table"><thead><tr><th>Model</th><th>Tokens</th><th>Sessions</th><th>Est. Cost</th></tr></thead><tbody>${
+              models.map(m => `<tr><td class="mn">${escapeHtml(m.model)}</td><td>${fmtTokens(m.tokens)}</td><td>${m.sessions}</td><td>${fmtCost(m.cost)}</td></tr>`).join('')
+            }</tbody></table>`
+          : '<div class="nominal">No model data available</div>';
+    } catch(e) { console.error('Costs panel:', e); }
+
+    try {
+        const limits = rl.limits || [];
+        document.getElementById('rate-limits-panel').innerHTML = limits.length
+          ? limits.map(l => {
+              const cls = l.percent > 80 ? 'danger' : (l.percent > 60 ? 'warn' : 'ok');
+              return `<div class="gauge">
+                  <div class="gauge-head"><span class="gauge-provider">${escapeHtml(l.provider)}</span><span class="gauge-pct">${l.percent}%</span></div>
+                  <div class="gauge-bar"><div class="gauge-fill ${cls}" style="width:${Math.min(l.percent, 100)}%"></div></div>
+                  <div class="gauge-meta">${l.used} / ${l.limit || '?'} &middot; window: ${escapeHtml(l.window)}</div>
+              </div>`;
+            }).join('')
+          : '<div class="nominal">No rate limit data</div>';
+    } catch(e) { console.error('Rate limits panel:', e); }
+
+    try {
+        const jobs = crons.crons || [];
+        document.getElementById('cron-panel').innerHTML = jobs.length
+          ? jobs.map(c => `<div class="cron-card">
+              <div class="cron-dot ${escapeHtml(c.status)}"></div>
+              <div class="cron-info">
+                  <div class="cron-name">${escapeHtml(c.name)}</div>
+                  <div class="cron-meta">${escapeHtml(c.model)} &middot; ${fmtAge(c.last_run_ms)} &middot; ${fmtTokens(c.tokens)} tok</div>
+              </div>
+            </div>`).join('')
+          : '<div class="nominal">No cron jobs found</div>';
+    } catch(e) { console.error('Crons panel:', e); }
+
+    try {
+        const entries = feed.entries || [];
+        if (!entries.length) {
+            document.getElementById('feed-panel').innerHTML = '<div class="nominal">No recent activity</div>';
+        } else {
+            let html = '', lastDate = '';
+            for (const e of entries) {
+                if (e.date !== lastDate) {
+                    html += `<div class="feed-date">${escapeHtml(e.date)}</div>`;
+                    lastDate = e.date;
+                }
+                html += `<div class="feed-entry">
+                    <span class="feed-dot ${escapeHtml(e.color || 'cyan')}"></span>
+                    <span class="feed-msg">${escapeHtml(e.message)}</span>
+                </div>`;
+            }
+            document.getElementById('feed-panel').innerHTML = html;
+        }
+    } catch(e) { console.error('Feed panel:', e); }
+}
+
 async function switchMem(date, el) {
     const d = await get('memory?date=' + encodeURIComponent(date));
     document.getElementById('memory-content').textContent = d.content || 'No data';
@@ -783,9 +977,10 @@ document.addEventListener('keydown', (e) => {
         case 'r': case 'R': e.preventDefault(); load(); break;
         case '1': e.preventDefault(); switchTab('overview'); break;
         case '2': e.preventDefault(); switchTab('agents'); break;
+        case '3': e.preventDefault(); switchTab('ops'); break;
         case 't': case 'T': e.preventDefault(); toggleTheme(); break;
         case 'c': case 'C': e.preventDefault(); toggleCompact(); break;
-        case '?': e.preventDefault(); showToast('Keys: R refresh \u2022 1 overview \u2022 2 agents \u2022 T theme \u2022 C compact', 'info'); break;
+        case '?': e.preventDefault(); showToast('Keys: R refresh \u2022 1 overview \u2022 2 agents \u2022 3 ops \u2022 T theme \u2022 C compact', 'info'); break;
     }
 });
 

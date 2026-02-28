@@ -20,6 +20,8 @@ TASKBOARD_FILE = WORKSPACE_PATH / "taskboard-projects.json"
 
 KNOWN_SKILLS = ["antigravity-code","antigravity-proxy","backup-rotate","claude-antigravity-task","email-sender","morning-brief","nba-analytics","openclaw-superpowers","openrouter-credits","self-improving-agent","subagent-runner","system-check"]
 
+OPENCLAW_BIN = "/home/rosebud0585/.npm-global/bin/openclaw"
+
 ACTION_COOLDOWN_SEC = 10
 _action_last_run = {}
 ACTION_MAP = {
@@ -104,7 +106,11 @@ def get_uptime():
 
 def parse_activities(limit=50):
     acts = []
-    files = sorted([f for f in os.listdir(MEMORY_DIR) if re.match(r"\d{4}-\d{2}-\d{2}\.md", f)], reverse=True)
+    try:
+        dir_entries = os.listdir(MEMORY_DIR)
+    except OSError:
+        return acts
+    files = sorted([f for f in dir_entries if re.match(r"\d{4}-\d{2}-\d{2}\.md", f)], reverse=True)
     for fname in files[:7]:
         date = fname.replace('.md', '')
         try:
@@ -334,6 +340,118 @@ def parse_todos():
     grand_pct = round((grand_done / grand_total) * 100) if grand_total else 0
     return {"projects": projects, "total": grand_total, "done": grand_done, "percent": grand_pct}
 
+def get_session_costs():
+    result = {
+        "today_cost": 0.0, "alltime_cost": 0.0, "projected_monthly": 0.0,
+        "today_tokens": 0, "alltime_tokens": 0,
+        "models": [], "session_count": 0,
+    }
+    try:
+        proc = subprocess.run(
+            [OPENCLAW_BIN, "sessions", "--all-agents", "--json"],
+            capture_output=True, text=True, timeout=10
+        )
+        if proc.returncode != 0:
+            return result
+        data = json.loads(proc.stdout)
+        sessions = data.get("sessions", [])
+        model_agg = {}
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        for s in sessions:
+            model = s.get("model", "unknown")
+            tokens = s.get("totalTokens", 0) or 0
+            cost = float(s.get("totalCost", 0) or 0)
+            if model not in model_agg:
+                model_agg[model] = {"model": model, "tokens": 0, "cost": 0.0, "sessions": 0}
+            model_agg[model]["tokens"] += tokens
+            model_agg[model]["cost"] += cost
+            model_agg[model]["sessions"] += 1
+            result["alltime_cost"] += cost
+            result["alltime_tokens"] += tokens
+            result["session_count"] += 1
+            if today_str in str(s.get("createdAt", "")):
+                result["today_cost"] += cost
+                result["today_tokens"] += tokens
+        result["models"] = sorted(model_agg.values(), key=lambda x: x["tokens"], reverse=True)
+        day = datetime.now().day
+        if result["alltime_cost"] > 0 and day > 0:
+            result["projected_monthly"] = round(result["alltime_cost"] / day * 30, 4)
+        elif result["today_cost"] > 0:
+            result["projected_monthly"] = round(result["today_cost"] * 30, 4)
+    except Exception:
+        pass
+    for k in ("today_cost", "alltime_cost", "projected_monthly"):
+        result[k] = round(result[k], 4)
+    return result
+
+
+def get_cron_sessions():
+    try:
+        proc = subprocess.run(
+            [OPENCLAW_BIN, "sessions", "--all-agents", "--active", "4320", "--json"],
+            capture_output=True, text=True, timeout=10
+        )
+        if proc.returncode == 0:
+            data = json.loads(proc.stdout)
+            crons = []
+            for s in data.get("sessions", []):
+                key = s.get("key", "")
+                if "cron:" not in key:
+                    continue
+                age = s.get("ageMs", 999999)
+                aborted = s.get("abortedLastRun", False)
+                status = "error" if aborted else ("active" if age < 300000 else "idle")
+                crons.append({
+                    "name": key.split("cron:", 1)[-1].strip() or key,
+                    "status": status,
+                    "model": s.get("model", "unknown"),
+                    "last_run_ms": age,
+                    "tokens": s.get("totalTokens", 0),
+                    "session_id": s.get("sessionId", ""),
+                })
+            return {"ok": True, "crons": crons}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "crons": []}
+    return {"ok": False, "crons": []}
+
+
+def get_rate_limits():
+    limits = []
+    try:
+        proc = subprocess.run(
+            [OPENCLAW_BIN, "channels", "list", "--json"],
+            capture_output=True, text=True, timeout=10
+        )
+        if proc.returncode == 0:
+            data = json.loads(proc.stdout)
+            for ch in data.get("channels", data.get("providers", [])):
+                name = ch.get("name", ch.get("provider", "unknown"))
+                usage = ch.get("usage", ch.get("rateLimit", {}))
+                if not isinstance(usage, dict):
+                    continue
+                limit_val = usage.get("limit", usage.get("max", 0))
+                used_val = usage.get("used", usage.get("current", 0))
+                window = usage.get("window", usage.get("resetIn", "unknown"))
+                pct = round((used_val / limit_val * 100) if limit_val > 0 else 0, 1)
+                limits.append({
+                    "provider": name, "used": used_val, "limit": limit_val,
+                    "percent": pct, "window": str(window),
+                })
+            if limits:
+                return {"ok": True, "limits": limits}
+    except Exception:
+        pass
+    try:
+        with open(f"{WORKSPACE}/memory/monitor-state.json") as f:
+            mon = json.load(f)
+        count = mon.get("lastRateLimitCount", 0)
+        if count > 0:
+            limits.append({"provider": "Combined", "used": count, "limit": 0, "percent": 0, "window": "recent"})
+    except Exception:
+        pass
+    return {"ok": True, "limits": limits}
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {fmt % args}")
@@ -550,6 +668,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "cooldown_left": cooldown_left,
                     })
                 self.send_json({"actions": actions, "cooldown_sec": ACTION_COOLDOWN_SEC})
+            elif path == "/api/costs":
+                self.send_json(get_session_costs())
+            elif path == "/api/crons":
+                self.send_json(get_cron_sessions())
+            elif path == "/api/rate-limits":
+                self.send_json(get_rate_limits())
+            elif path == "/api/feed":
+                self.send_json({"ok": True, "entries": parse_activities(limit=100)})
             else:
                 self.send_json({"error": "Not found"}, 404)
         except Exception as e:
