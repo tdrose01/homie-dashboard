@@ -115,7 +115,10 @@
         .status-dot.working { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
         .status-dot.error { background: var(--error); box-shadow: 0 0 8px var(--error); }
         .issues-container { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
-        .alert-card { background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; transition:transform 0.2s, box-shadow 0.2s; }
+        .alert-card { position:relative; background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; transition:transform 0.2s, box-shadow 0.2s; }
+        .alert-dismiss { position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:50%; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--muted); font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .2s; line-height:1; }
+        .alert-card:hover .alert-dismiss { opacity:1; }
+        .alert-dismiss:hover { background:rgba(255,255,255,0.15); color:var(--text); border-color:rgba(255,255,255,0.2); }
         .alert-card:hover { transform:translateY(-2px); box-shadow:0 4px 20px rgba(0,0,0,0.2); }
         .alert-card.error { border-top:2px solid var(--error); }
         .alert-card.warning { border-top:2px solid var(--warn); }
@@ -320,6 +323,8 @@
         body.light .toast.warn { background:rgba(245,158,11,0.1); }
         body.light .toast.info { background:rgba(0,140,210,0.08); }
         body.light .memory-content::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.15); }
+        body.light .alert-dismiss { background:rgba(0,0,0,0.05); border-color:rgba(0,0,0,0.1); }
+        body.light .alert-dismiss:hover { background:rgba(0,0,0,0.1); color:var(--text); }
         body.light .cron-card { background:rgba(0,0,0,0.03); }
         body.light .gauge-bar { background:rgba(0,0,0,0.08); }
         body.light .feed::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.12); }
@@ -445,7 +450,7 @@
         </div>
 
         <div class="glass" style="grid-column: 1 / -1;">
-            <div class="panel-header">Alerts Panel</div>
+            <div class="panel-header">Alerts Panel <span id="alerts-controls" style="margin-left:auto;display:flex;gap:6px;align-items:center"></span></div>
             <div id="issues" class="issues-container">
                 <div class="skel" style="height:80px;border-radius:10px"></div>
                 <div class="skel" style="height:80px;border-radius:10px"></div>
@@ -729,6 +734,71 @@ function fmtAge(ms) {
     return Math.floor(ms / 86400000) + 'd ago';
 }
 
+let _dismissedAlerts = new Set(JSON.parse(localStorage.getItem('homie-dismissed-alerts') || '[]'));
+let _lastIssues = [];
+
+function saveDismissed() {
+    localStorage.setItem('homie-dismissed-alerts', JSON.stringify([..._dismissedAlerts]));
+}
+
+function dismissAlert(msg) {
+    _dismissedAlerts.add(msg);
+    saveDismissed();
+    renderAlerts();
+}
+
+function clearAllAlerts() {
+    _lastIssues.forEach(i => _dismissedAlerts.add(i.message));
+    saveDismissed();
+    renderAlerts();
+}
+
+function resetAlerts() {
+    _dismissedAlerts.clear();
+    saveDismissed();
+    renderAlerts();
+}
+
+function renderAlerts() {
+    const iel = document.getElementById('issues');
+    const ctrl = document.getElementById('alerts-controls');
+    if (!iel) return;
+
+    const all = _lastIssues;
+    const visible = all.filter(i => !_dismissedAlerts.has(i.message));
+    const cleared = all.length - visible.length;
+
+    let ctrlHtml = '';
+    if (cleared > 0) {
+        ctrlHtml += `<span style="font-size:11px;color:var(--muted)">${cleared} cleared</span>`;
+        ctrlHtml += `<button class="btn" style="font-size:10px;padding:2px 8px" onclick="resetAlerts()">Show all</button>`;
+    }
+    if (visible.length > 0) {
+        ctrlHtml += `<button class="btn" style="font-size:10px;padding:2px 8px" onclick="clearAllAlerts()">Clear all</button>`;
+    }
+    if (ctrl) ctrl.innerHTML = ctrlHtml;
+
+    if (all.length === 0 && cleared === 0) {
+        iel.innerHTML = '<div class="nominal" style="grid-column:1/-1">All systems nominal</div>';
+    } else if (visible.length === 0) {
+        iel.innerHTML = `<div class="nominal" style="grid-column:1/-1">All alerts cleared</div>`;
+    } else {
+        iel.innerHTML = visible.map(i => {
+            const isErr = i.level === 'error';
+            const icon = isErr ? '\u2715' : '\u26A0';
+            const label = isErr ? 'Error' : 'Warning';
+            return `<div class="alert-card ${escapeHtml(i.level)}">
+                <button class="alert-dismiss" data-msg="${escapeHtml(i.message)}" onclick="event.stopPropagation();dismissAlert(this.getAttribute('data-msg'))" title="Dismiss">&times;</button>
+                <div class="alert-head">
+                    <div class="alert-icon">${icon}</div>
+                    <span class="alert-badge">${label}</span>
+                </div>
+                <div class="alert-msg">${escapeHtml(i.message)}</div>
+            </div>`;
+        }).join('');
+    }
+}
+
 
 async function get(endpoint) {
     try {
@@ -818,20 +888,8 @@ async function load() {
     } catch(e) { console.error('Memory panel:', e); }
 
     try {
-        const iel = document.getElementById('issues');
-        if (is.nominal) iel.innerHTML = '<div class="nominal" style="grid-column:1/-1">All systems nominal</div>';
-        else iel.innerHTML = (is.issues||[]).map(i => {
-            const isErr = i.level === 'error';
-            const icon = isErr ? '\u2715' : '\u26A0';
-            const label = isErr ? 'Error' : 'Warning';
-            return `<div class="alert-card ${escapeHtml(i.level)}">
-                <div class="alert-head">
-                    <div class="alert-icon">${icon}</div>
-                    <span class="alert-badge">${label}</span>
-                </div>
-                <div class="alert-msg">${escapeHtml(i.message)}</div>
-            </div>`;
-        }).join('');
+        _lastIssues = is.issues || [];
+        renderAlerts();
     } catch(e) { console.error('Alerts panel:', e); }
 
     try {
