@@ -55,6 +55,7 @@
         }
         .stat { text-align: center; }
         .stat .val { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 500; color: var(--cyan); margin: 8px 0; }
+        .spark { display:block; margin:2px auto 0; opacity:.6; }
         .stat .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
         .panel-header { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
         .panel-header .pulse { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; }
@@ -776,21 +777,37 @@ function filterMemory() {
     if (countEl) { countEl.textContent = `${matched.length} / ${lines.length} lines`; countEl.style.display = 'block'; }
 }
 
-let _dismissedAlerts = new Set(JSON.parse(localStorage.getItem('homie-dismissed-alerts') || '[]'));
+let _dismissedAlerts = new Map();
 let _lastIssues = [];
+const DISMISS_TTL = 86400000;
+
+function loadDismissed() {
+    try {
+        const raw = JSON.parse(localStorage.getItem('homie-dismissed-alerts') || '[]');
+        const now = Date.now();
+        _dismissedAlerts.clear();
+        for (const entry of raw) {
+            if (typeof entry === 'string') { _dismissedAlerts.set(entry, now); }
+            else if (entry.m && entry.t && now - entry.t < DISMISS_TTL) { _dismissedAlerts.set(entry.m, entry.t); }
+        }
+        saveDismissed();
+    } catch(e) { _dismissedAlerts.clear(); }
+}
 
 function saveDismissed() {
-    localStorage.setItem('homie-dismissed-alerts', JSON.stringify([..._dismissedAlerts]));
+    const arr = []; _dismissedAlerts.forEach((t, m) => arr.push({m, t}));
+    localStorage.setItem('homie-dismissed-alerts', JSON.stringify(arr));
 }
 
 function dismissAlert(msg) {
-    _dismissedAlerts.add(msg);
+    _dismissedAlerts.set(msg, Date.now());
     saveDismissed();
     renderAlerts();
 }
 
 function clearAllAlerts() {
-    _lastIssues.forEach(i => _dismissedAlerts.add(i.message));
+    const now = Date.now();
+    _lastIssues.forEach(i => _dismissedAlerts.set(i.message, now));
     saveDismissed();
     renderAlerts();
 }
@@ -842,6 +859,17 @@ function renderAlerts() {
 }
 
 
+const _spark = { cpu: [], ram: [] };
+const SPARK_LEN = 20;
+
+function sparkSVG(data, color, maxVal) {
+    if (data.length < 2) return '';
+    const w = 60, h = 16, max = maxVal || Math.max(...data, 1);
+    const step = w / (data.length - 1);
+    const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * (h - 2) - 1).toFixed(1)}`);
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="60" height="16"><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
 async function get(endpoint) {
     try {
         const res = await fetch(API_BASE + '/' + endpoint);
@@ -876,8 +904,13 @@ async function load() {
     ]);
 
     try {
-        document.getElementById('cpu').textContent = (escapeHtml(s.cpu_percent) || '--') + '%';
-        document.getElementById('ram').textContent = (escapeHtml(s.ram_gb) || '--') + ' / ' + (escapeHtml(s.ram_total_gb) || '--') + ' GB';
+        _spark.cpu.push(s.cpu_percent || 0);
+        if (_spark.cpu.length > SPARK_LEN) _spark.cpu.shift();
+        _spark.ram.push(s.ram_gb || 0);
+        if (_spark.ram.length > SPARK_LEN) _spark.ram.shift();
+
+        document.getElementById('cpu').innerHTML = escapeHtml((s.cpu_percent ?? '--') + '%') + sparkSVG(_spark.cpu, 'var(--cyan)', 100);
+        document.getElementById('ram').innerHTML = escapeHtml((s.ram_gb ?? '--') + ' / ' + (s.ram_total_gb ?? '--') + ' GB') + sparkSVG(_spark.ram, 'var(--purple)', s.ram_total_gb || 16);
         document.getElementById('disk').textContent = (escapeHtml(s.disk_gb) || '--') + ' / ' + (escapeHtml(s.disk_total_gb) || '--') + ' GB';
         document.getElementById('uptime').textContent = escapeHtml(s.uptime) || '--';
     } catch(e) { console.error('Status panel:', e); }
@@ -1174,6 +1207,7 @@ async function downloadSnapshot() {
 
 initCompact();
 initTheme();
+loadDismissed();
 
 document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
