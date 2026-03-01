@@ -210,6 +210,23 @@
         .feed-msg { color:var(--muted); line-height:1.4; word-break:break-word; }
         .feed-date { font-size:11px; color:var(--muted); opacity:.6; padding:10px 0 4px; font-family:'JetBrains Mono',monospace; }
 
+        /* Cost history chart */
+        .chart-wrap { position:relative; width:100%; height:180px; }
+        .chart-svg { width:100%; height:100%; }
+        .chart-bar { transition:opacity .2s; cursor:pointer; }
+        .chart-bar:hover { opacity:0.8; }
+        .chart-gridline { stroke:var(--border); stroke-width:0.5; }
+        .chart-label { font-family:'JetBrains Mono',monospace; font-size:9px; fill:var(--muted); }
+        .chart-tooltip { position:absolute; pointer-events:none; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:12px; font-family:'JetBrains Mono',monospace; backdrop-filter:blur(12px); box-shadow:0 4px 16px rgba(0,0,0,0.3); white-space:nowrap; z-index:10; opacity:0; transition:opacity .15s; }
+        .chart-tooltip.visible { opacity:1; }
+        .chart-tooltip-date { color:var(--cyan); font-weight:600; margin-bottom:3px; }
+        .chart-tooltip-val { color:var(--text); }
+        .chart-tooltip-tok { color:var(--muted); font-size:11px; }
+        .chart-empty { height:180px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:13px; }
+        body.compact .chart-wrap { height:130px; }
+        body.compact .chart-empty { height:130px; }
+        body.light .chart-tooltip { box-shadow:0 4px 16px rgba(0,0,0,0.1); }
+
         /* Toast notifications */
         #toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; max-width:380px; }
         .toast { pointer-events:auto; padding:12px 16px; border-radius:10px; font-size:13px; font-family:'Inter',sans-serif; backdrop-filter:blur(16px); border:1px solid var(--border); color:var(--text); animation:toastIn .3s ease forwards; display:flex; align-items:center; gap:10px; box-shadow:0 4px 24px rgba(0,0,0,0.3); }
@@ -508,6 +525,13 @@
                 <div class="glass stat"><div class="lbl">Today Cost</div><div class="val" id="cost-today">--</div><div class="lbl" id="cost-today-tok"></div></div>
                 <div class="glass stat"><div class="lbl">All-Time Cost</div><div class="val" id="cost-alltime">--</div><div class="lbl" id="cost-alltime-tok"></div></div>
                 <div class="glass stat"><div class="lbl">Monthly Est.</div><div class="val" id="cost-monthly" style="color:var(--purple)">--</div><div class="lbl" id="cost-sessions"></div></div>
+            </div>
+
+            <div class="glass" style="grid-column:1/-1;">
+                <div class="panel-header">Daily Cost History</div>
+                <div id="cost-chart">
+                    <div class="chart-empty">Collecting data...</div>
+                </div>
             </div>
 
             <div class="glass" style="grid-column:1/-1;">
@@ -1002,9 +1026,71 @@ async function load() {
     document.body.style.opacity = '1';
 }
 
+function renderCostChart(days) {
+    const el = document.getElementById('cost-chart');
+    if (!el) return;
+    if (!days || days.length === 0) {
+        el.innerHTML = '<div class="chart-empty">No cost history yet</div>';
+        return;
+    }
+
+    const recent = days.slice(-30);
+    const maxCost = Math.max(...recent.map(d => d.cost || 0), 0.01);
+    const W = 800, H = 160, padL = 45, padR = 10, padT = 10, padB = 28;
+    const chartW = W - padL - padR, chartH = H - padT - padB;
+    const barW = Math.max(Math.floor(chartW / recent.length) - 2, 4);
+    const gap = (chartW - barW * recent.length) / Math.max(recent.length - 1, 1);
+
+    let gridLines = '';
+    const gridSteps = 4;
+    for (let i = 0; i <= gridSteps; i++) {
+        const y = padT + (chartH / gridSteps) * i;
+        const val = maxCost - (maxCost / gridSteps) * i;
+        gridLines += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" class="chart-gridline"/>`;
+        gridLines += `<text x="${padL - 4}" y="${y + 3}" class="chart-label" text-anchor="end">$${val < 1 ? val.toFixed(2) : val.toFixed(1)}</text>`;
+    }
+
+    let bars = '', labels = '';
+    recent.forEach((d, i) => {
+        const x = padL + i * (barW + gap);
+        const h = chartH * Math.min((d.cost || 0) / maxCost, 1);
+        const y = padT + chartH - h;
+        const color = (d.cost || 0) > maxCost * 0.8 ? 'var(--warn)' : 'var(--cyan)';
+        bars += `<rect class="chart-bar" x="${x}" y="${y}" width="${barW}" height="${Math.max(h, 1)}" rx="2" fill="${color}" data-idx="${i}"/>`;
+        if (recent.length <= 15 || i % Math.ceil(recent.length / 10) === 0 || i === recent.length - 1) {
+            const lbl = (d.date || '').slice(5);
+            labels += `<text x="${x + barW / 2}" y="${H - 4}" class="chart-label" text-anchor="middle">${lbl}</text>`;
+        }
+    });
+
+    el.innerHTML = `<div class="chart-wrap">
+        <div class="chart-tooltip" id="chart-tip"></div>
+        <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${gridLines}${bars}${labels}</svg>
+    </div>`;
+
+    const svg = el.querySelector('.chart-svg');
+    const tip = document.getElementById('chart-tip');
+    if (svg && tip) {
+        svg.addEventListener('mousemove', (ev) => {
+            const bar = ev.target.closest('.chart-bar');
+            if (!bar) { tip.classList.remove('visible'); return; }
+            const idx = parseInt(bar.dataset.idx);
+            const d = recent[idx];
+            if (!d) return;
+            tip.innerHTML = `<div class="chart-tooltip-date">${escapeHtml(d.date)}</div><div class="chart-tooltip-val">${fmtCost(d.cost)}</div><div class="chart-tooltip-tok">${fmtTokens(d.tokens)} tokens &middot; ${d.sessions || 0} sessions</div>`;
+            const rect = el.querySelector('.chart-wrap').getBoundingClientRect();
+            const bRect = bar.getBoundingClientRect();
+            tip.style.left = (bRect.left - rect.left + bRect.width / 2) + 'px';
+            tip.style.top = (bRect.top - rect.top - 60) + 'px';
+            tip.classList.add('visible');
+        });
+        svg.addEventListener('mouseleave', () => tip.classList.remove('visible'));
+    }
+}
+
 async function loadOps() {
-    const [costs, rl, crons, feed] = await Promise.all([
-        get('costs'), get('rate-limits'), get('crons'), get('feed')
+    const [costs, rl, crons, feed, costHist] = await Promise.all([
+        get('costs'), get('rate-limits'), get('crons'), get('feed'), get('cost-history')
     ]);
 
     try {
@@ -1022,6 +1108,10 @@ async function loadOps() {
             }</tbody></table>`
           : '<div class="nominal">No model data available</div>';
     } catch(e) { console.error('Costs panel:', e); }
+
+    try {
+        renderCostChart((costHist.days || []).slice(-30));
+    } catch(e) { console.error('Cost chart:', e); }
 
     try {
         const limits = rl.limits || [];

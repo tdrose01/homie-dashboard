@@ -17,6 +17,7 @@ PORT = 8899
 TODO_FILE = BASE_DIR / "TODO.md"
 WORKSPACE_PATH = pathlib.Path(WORKSPACE)
 TASKBOARD_FILE = WORKSPACE_PATH / "taskboard-projects.json"
+COST_HISTORY_FILE = BASE_DIR / "cost-history.json"
 
 KNOWN_SKILLS = ["antigravity-code","antigravity-proxy","backup-rotate","claude-antigravity-task","email-sender","morning-brief","nba-analytics","openclaw-superpowers","openrouter-credits","self-improving-agent","subagent-runner","system-check"]
 
@@ -385,6 +386,47 @@ def get_session_costs():
     return result
 
 
+def load_cost_history():
+    try:
+        if COST_HISTORY_FILE.exists():
+            return json.loads(COST_HISTORY_FILE.read_text())
+    except Exception:
+        pass
+    return {"days": []}
+
+
+def save_cost_history(hist):
+    try:
+        COST_HISTORY_FILE.write_text(json.dumps(hist, indent=2))
+    except Exception:
+        pass
+
+
+def record_daily_snapshot(costs):
+    today = datetime.now().strftime("%Y-%m-%d")
+    hist = load_cost_history()
+    days = hist.get("days", [])
+    existing = next((d for d in days if d.get("date") == today), None)
+    entry = {
+        "date": today,
+        "cost": round(costs.get("today_cost", 0), 4),
+        "tokens": costs.get("today_tokens", 0),
+        "sessions": costs.get("session_count", 0),
+        "alltime_cost": round(costs.get("alltime_cost", 0), 4),
+    }
+    if existing:
+        idx = days.index(existing)
+        days[idx] = entry
+    else:
+        days.append(entry)
+    days.sort(key=lambda d: d.get("date", ""))
+    if len(days) > 90:
+        days = days[-90:]
+    hist["days"] = days
+    save_cost_history(hist)
+    return hist
+
+
 def get_cron_sessions():
     try:
         proc = subprocess.run(
@@ -669,7 +711,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     })
                 self.send_json({"actions": actions, "cooldown_sec": ACTION_COOLDOWN_SEC})
             elif path == "/api/costs":
-                self.send_json(get_session_costs())
+                costs = get_session_costs()
+                record_daily_snapshot(costs)
+                self.send_json(costs)
+            elif path == "/api/cost-history":
+                self.send_json(load_cost_history())
             elif path == "/api/crons":
                 self.send_json(get_cron_sessions())
             elif path == "/api/rate-limits":
