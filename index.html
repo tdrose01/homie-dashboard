@@ -108,6 +108,14 @@
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 
         .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }
+        .agent-grid.tree-view { display:flex; flex-direction:column; gap:0; }
+        .tree-node { margin-bottom:16px; }
+        .tree-root { box-shadow:inset 3px 0 0 var(--cyan); }
+        .tree-children { margin-left:28px; padding-left:16px; border-left:2px solid rgba(0,212,255,0.15); display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+        .tree-leaf { padding:12px 14px; gap:8px; }
+        .tree-leaf .agent-header { border-bottom:none; padding-bottom:0; }
+        .tree-leaf .agent-body { font-size:11px; gap:5px; }
+        .tree-child-count { font-size:10px; background:rgba(0,212,255,0.15); color:var(--cyan); padding:2px 8px; border-radius:10px; }
         .agent-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         .agent-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
         .agent-name { font-size: 14px; font-weight: 600; color: #fff; }
@@ -296,6 +304,8 @@
         body.compact .agent-card { padding:10px; gap:6px; }
         body.compact .agent-name { font-size:12px; }
         body.compact .agent-body { font-size:11px; gap:5px; }
+        body.compact .tree-children { margin-left:20px; padding-left:12px; gap:8px; margin-top:8px; }
+        body.compact .tree-node { margin-bottom:12px; }
         body.compact .gw-metric .gw-val { font-size:18px; }
         body.compact .date-chips { gap:4px; }
         body.compact .chip { padding:3px 8px; font-size:10px; }
@@ -332,6 +342,8 @@
         body.light .provider,
         body.light .alert-card,
         body.light .agent-card { background:rgba(0,0,0,0.03); }
+        body.light .tree-children { border-color:rgba(0,100,200,0.15); }
+        body.light .tree-root { box-shadow:inset 3px 0 0 #0088cc; }
         body.light .action-result { background:rgba(0,0,0,0.03); }
         body.light .skill.installed { background:rgba(0,140,210,0.1); }
         body.light .skill.missing { background:rgba(0,0,0,0.04); }
@@ -634,73 +646,95 @@ function switchTab(tabId) {
     if (tabId === 'ops') loadOps();
 }
 
+function buildAgentTree(sessions) {
+    const roots = [];
+    const subs = [];
+    for (const s of sessions) {
+        if ((s.key || '').includes('cron:')) continue;
+        if (s.ageMs >= 120000 && !s.abortedLastRun) continue;
+        if (s.agentId === 'main' || !s.agentId || s.agentId === 'default') {
+            roots.push({...s, children: []});
+        } else {
+            subs.push(s);
+        }
+    }
+    for (const sub of subs) {
+        let matched = false;
+        if (sub.parentSessionId) {
+            const p = roots.find(r => r.sessionId === sub.parentSessionId);
+            if (p) { p.children.push(sub); matched = true; }
+        }
+        if (!matched) {
+            const subBase = (sub.key || '').split('/')[0];
+            const p = roots.find(r => {
+                const rBase = (r.key || '').split('/')[0];
+                return rBase && subBase && (rBase === subBase || subBase.startsWith(rBase));
+            });
+            if (p) { p.children.push(sub); matched = true; }
+        }
+        if (!matched) {
+            if (roots.length > 0) roots[0].children.push(sub);
+            else roots.push({...sub, children: []});
+        }
+    }
+    return roots;
+}
+
+function agentCardHTML(s, isRoot) {
+    const sessionId = s.sessionId || 'unknown';
+    let typeName = 'Main Session';
+    if (s.agentId && s.agentId !== 'main' && s.agentId !== 'default') typeName = `Sub-agent (${s.agentId})`;
+    else if (s.kind === 'group') typeName = 'Group Chat';
+    const isActive = s.ageMs < 120000;
+    let stCls = isActive ? 'working' : 'idle', stTxt = isActive ? 'Working' : 'Idle';
+    if (s.abortedLastRun) { stCls = 'error'; stTxt = 'Aborted / Error'; }
+    const shortId = sessionId.length > 8 ? sessionId.substring(0, 8) + '...' + sessionId.slice(-4) : sessionId;
+    const childCount = (s.children || []).length;
+    return `<div class="agent-card ${isRoot ? 'tree-root' : 'tree-leaf'}">
+        <div class="agent-header">
+            <span class="agent-name" title="${escapeHtml(s.key || '')}">${escapeHtml(shortId)}</span>
+            <div style="display:flex;align-items:center;gap:6px">
+                ${childCount > 0 ? `<span class="tree-child-count">${childCount} sub</span>` : ''}
+                <span class="agent-type">${escapeHtml(typeName)}</span>
+            </div>
+        </div>
+        <div class="agent-body">
+            <div class="agent-row"><span class="agent-lbl">Status</span><div class="agent-status"><div class="status-dot ${stCls}"></div><span class="agent-val">${escapeHtml(stTxt)}</span></div></div>
+            <div class="agent-row"><span class="agent-lbl">Model</span><span class="agent-val">${escapeHtml(s.model || 'unknown')}</span></div>
+            <div class="agent-row"><span class="agent-lbl">Tokens</span><span class="agent-val">${(s.totalTokens || 0).toLocaleString()}</span></div>
+            <div class="agent-row"><span class="agent-lbl">Last Active</span><span class="agent-val">${fmtAge(s.ageMs)}</span></div>
+        </div>
+    </div>`;
+}
+
 async function loadAgents() {
     try {
         const r = await fetch(API_BASE + '/agents').then(r => r.json());
         if (!r.ok || !r.sessions) throw new Error(r.error || 'Failed to load agents');
 
         const grid = document.getElementById('agent-grid');
+        const tree = buildAgentTree(r.sessions);
+        const hasChildren = tree.some(n => (n.children || []).length > 0);
 
-        const workingAgents = r.sessions.filter(s => {
-            const isCron = (s.key || '').includes('cron:');
-            if (isCron) return false;
-
-            const isActiveNow = s.ageMs < 120000;
-            const hasError = s.abortedLastRun === true;
-            return isActiveNow || hasError;
-        });
-
-        if (workingAgents.length === 0) {
+        if (tree.length === 0) {
+            grid.className = 'agent-grid';
             grid.innerHTML = `<div style="color:var(--muted); padding:20px; text-align:center; width:100%; grid-column:1/-1;">No agents are currently working.</div>`;
             return;
         }
 
-        const cards = workingAgents.map(s => {
-            const key = s.key || '';
-            const sessionId = s.sessionId || 'unknown';
-            const isGroup = s.kind === 'group';
-
-            let typeName = 'Main Session';
-            if (s.agentId !== 'main') typeName = `Sub-agent (${s.agentId || 'unknown'})`;
-            else if (isGroup) typeName = 'Group Chat';
-
-            const isActiveNow = s.ageMs < 120000;
-            let statusClass = isActiveNow ? 'working' : 'idle';
-            let statusText = isActiveNow ? 'Working' : 'Idle';
-
-            if (s.abortedLastRun) {
-                statusClass = 'error';
-                statusText = 'Aborted / Error';
-            }
-
-            const formatTime = (ms) => {
-                if (!ms && ms !== 0) return 'unknown';
-                if (ms < 60000) return `${Math.floor(ms/1000)}s ago`;
-                if (ms < 3600000) return `${Math.floor(ms/60000)}m ago`;
-                return `${Math.floor(ms/3600000)}h ago`;
-            };
-
-            const shortId = sessionId.length > 8 ? `${sessionId.substring(0, 8)}...${sessionId.slice(-4)}` : sessionId;
-
-            return `
-            <div class="agent-card">
-                <div class="agent-header">
-                    <span class="agent-name" title="${escapeHtml(key)}">${escapeHtml(shortId)}</span>
-                    <span class="agent-type">${escapeHtml(typeName)}</span>
-                </div>
-                <div class="agent-body">
-                    <div class="agent-row">
-                        <span class="agent-lbl">Status</span>
-                        <div class="agent-status"><div class="status-dot ${statusClass}"></div><span class="agent-val">${escapeHtml(statusText)}</span></div>
-                    </div>
-                    <div class="agent-row"><span class="agent-lbl">Model</span><span class="agent-val">${escapeHtml(s.model || 'unknown')}</span></div>
-                    <div class="agent-row"><span class="agent-lbl">Tokens</span><span class="agent-val">${(s.totalTokens || 0).toLocaleString()}</span></div>
-                    <div class="agent-row"><span class="agent-lbl">Last Active</span><span class="agent-val">${formatTime(s.ageMs)}</span></div>
-                </div>
-            </div>`;
-        }).join('');
-
-        grid.innerHTML = cards;
+        if (hasChildren) {
+            grid.className = 'agent-grid tree-view';
+            grid.innerHTML = tree.map(node => {
+                let html = `<div class="tree-node">${agentCardHTML(node, true)}`;
+                if (node.children.length > 0) {
+                    html += `<div class="tree-children">${node.children.map(c => agentCardHTML(c, false)).join('')}</div>`;
+                }
+                return html + '</div>';
+            }).join('');
+        } else {
+            grid.className = 'agent-grid';
+            grid.innerHTML = tree.map(node => agentCardHTML(node, true)).join('');
+        }
     } catch (e) {
         showToast('Agent fleet: ' + e.message, 'error');
         document.getElementById('agent-grid').innerHTML = `<div style="color:var(--error); padding:20px; text-align:center; width:100%; grid-column:1/-1;">Error: ${escapeHtml(e.message)}</div>`;
