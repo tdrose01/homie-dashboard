@@ -25,3 +25,17 @@
 - [x] Cron job monitoring panel (`/api/crons` + frontend table/cards)
 - [x] Rate limit gauges (`/api/rate-limits` + visual progress bars per provider)
 - [x] Live activity feed (`/api/feed` + scrolling color-coded event panel)
+
+## V4 Sidebar Navigation (2026-03-05)
+- [x] Replace tab-based navigation with fixed sidebar (240px desktop)
+- [x] Add 6 navigation sections: Dashboard, Agents, Memory, Tasks, Costs, Actions
+- [x] Mobile responsive: hamburger menu + slide-out drawer
+- [x] Keyboard shortcut `[` to toggle sidebar
+- [x] Dark theme with smooth transitions
+- [x] Update documentation (README, PRD_V4, TODO)
+
+## V4 Pending (Semantic Memory Integration)
+- [ ] Integrate `search_memories_semantic()` API for Memory section
+- [ ] Add semantic search UI with similarity threshold slider
+- [ ] Connect Task Board to SQLite `task_log` table
+- [ ] Add duplicate detection API endpoint
