@@ -12,12 +12,18 @@
             --card: rgba(20, 20, 28, 0.7);
             --cyan: #00d4ff;
             --purple: #a855f7;
+            --green: #22c55e;
+            --yellow: #eab308;
+            --amber: #f59e0b;
+            --red: #ef4444;
             --text: #e2e8f0;
             --muted: #94a3b8;
             --border: rgba(255,255,255,0.08);
             --error: #ef4444;
             --warn: #f59e0b;
             --ok: #22c55e;
+            --sidebar-width: 240px;
+            --sidebar-collapsed: 60px;
         }
         body {
             font-family: 'Inter', sans-serif;
@@ -25,8 +31,150 @@
             background-image: radial-gradient(circle at 20% 80%, rgba(0,212,255,0.03) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(168,85,247,0.03) 0%, transparent 50%);
             color: var(--text);
             min-height: 100vh;
-            padding: 24px;
         }
+
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: rgba(15, 15, 22, 0.98);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: transform 0.3s ease, width 0.3s ease;
+        }
+        .sidebar.collapsed { width: var(--sidebar-collapsed); }
+        .sidebar.collapsed .nav-text { display: none; }
+        .sidebar.collapsed .sidebar-header .logo-text { display: none; }
+
+        .sidebar-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-header .logo-icon { width: 32px; height: 32px; filter: drop-shadow(0 0 6px rgba(0,212,255,0.3)); }
+        .sidebar-header .logo-text { display: flex; flex-direction: column; }
+        .sidebar-header .logo-title { font-size: 18px; font-weight: 800; letter-spacing: 0.1em; color: #fff; }
+        .sidebar-header .logo-subtitle { font-size: 9px; letter-spacing: 0.2em; color: var(--cyan); }
+
+        .nav-section { flex: 1; padding: 12px 8px; overflow-y: auto; }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 4px;
+            color: var(--muted);
+            text-decoration: none;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+        .nav-item.active { background: rgba(0,212,255,0.12); color: var(--cyan); }
+        .nav-item.active .nav-icon { box-shadow: 0 0 8px currentColor; }
+        .nav-icon { font-size: 18px; width: 24px; text-align: center; }
+        .nav-text { font-size: 14px; font-weight: 500; }
+
+        .nav-item[data-section="dashboard"] .nav-icon { color: var(--cyan); }
+        .nav-item[data-section="agents"] .nav-icon { color: var(--purple); }
+        .nav-item[data-section="memory"] .nav-icon { color: var(--green); }
+        .nav-item[data-section="tasks"] .nav-icon { color: var(--yellow); }
+        .nav-item[data-section="costs"] .nav-icon { color: var(--amber); }
+        .nav-item[data-section="actions"] .nav-icon { color: var(--red); }
+
+        .sidebar-footer {
+            padding: 12px 8px;
+            border-top: 1px solid var(--border);
+        }
+        .sidebar-footer .nav-item { font-size: 13px; padding: 10px 14px; }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 200;
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(20, 20, 28, 0.9);
+            color: var(--text);
+            font-size: 20px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+        .sidebar.collapsed ~ .main-content { margin-left: var(--sidebar-collapsed); }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: var(--sidebar-width);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 16px; padding-top: 70px; }
+            .hamburger { display: flex; }
+            .sidebar-header { padding-top: 60px; }
+        }
+
+        /* Overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 50;
+        }
+        .sidebar-overlay.active { display: block; }
+
+        /* Additional sidebar styles for actual HTML classes */
+        .sidebar-logo { width: 32px; height: 32px; filter: drop-shadow(0 0 6px rgba(0,212,255,0.3)); }
+        .sidebar-header-text { font-size: 18px; font-weight: 800; letter-spacing: 0.1em; color: #fff; }
+        .sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 4px;
+            color: var(--muted);
+        }
+        .sidebar-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+        .sidebar-item.active { background: rgba(0,212,255,0.12); color: var(--cyan); }
+        .sidebar-icon { font-size: 18px; width: 24px; text-align: center; }
+        .sidebar-label { font-size: 14px; font-weight: 500; }
+        .sidebar-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            color: var(--muted);
+            transition: all 0.2s;
+        }
+        .sidebar-toggle-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
         .glass { background: var(--card); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: opacity 0.3s; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
         .header-actions { display:flex; gap:10px; align-items:center; }
@@ -326,6 +474,149 @@
             .logo-group { gap:10px; }
         }
 
+        /* Sidebar Navigation */
+        :root {
+            --sidebar-width: 240px;
+            --sidebar-collapsed: 60px;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: rgba(12, 12, 18, 0.98);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: transform 0.3s ease, width 0.3s ease;
+        }
+        .sidebar.collapsed { width: var(--sidebar-collapsed); }
+        .sidebar.collapsed .sidebar-label { opacity: 0; width: 0; }
+        .sidebar.collapsed .sidebar-header-text { opacity: 0; width: 0; }
+        .sidebar-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-logo {
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 6px rgba(0,212,255,0.3));
+        }
+        .sidebar-header-text {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: #fff;
+            white-space: nowrap;
+            transition: opacity 0.2s, width 0.2s;
+        }
+        .sidebar-nav {
+            flex: 1;
+            padding: 12px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .sidebar-item:hover {
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+        }
+        .sidebar-item.active {
+            background: rgba(0,212,255,0.15);
+            color: var(--cyan);
+        }
+        .sidebar-icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .sidebar-label {
+            white-space: nowrap;
+            transition: opacity 0.2s, width 0.2s;
+        }
+        .sidebar-footer {
+            padding: 12px 8px;
+            border-top: 1px solid var(--border);
+        }
+        .sidebar-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .sidebar-toggle-btn:hover {
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+        }
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+        .sidebar.collapsed + .main-content { margin-left: var(--sidebar-collapsed); }
+        .hamburger {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 101;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--text);
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: var(--sidebar-width);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+            .hamburger { display: flex; }
+            .sidebar.collapsed + .main-content { margin-left: 0; }
+        }
+        body.sidebar-open-mobile { overflow: hidden; }
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 99;
+        }
+        @media (max-width: 768px) {
+            .sidebar.open + .sidebar-overlay { display: block; }
+        }
+
         /* Light theme */
         body.light {
             --bg: #f0f2f5;
@@ -373,7 +664,56 @@
 </head>
 <body>
     <div id="toast-container"></div>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <svg class="sidebar-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M32 3 L56 17 L56 47 L32 61 L8 47 L8 17 Z" stroke="url(#lg2)" stroke-width="1.5" fill="rgba(0,180,255,0.06)"/>
+                <path d="M32 5 L37 19 L32 25 L27 19 Z" fill="url(#lg1)"/>
+                <path d="M32 23 L42 35 L32 45 L22 35 Z" stroke="url(#lg1)" stroke-width="1" fill="none"/>
+                <circle cx="32" cy="51" r="4" fill="url(#lg1)"/>
+            </svg>
+            <span class="sidebar-header-text">HOMIE</span>
+        </div>
+        <div class="sidebar-nav">
+            <div class="sidebar-item active" data-section="dashboard" onclick="switchSection('dashboard')">
+                <span class="sidebar-icon">📊</span>
+                <span class="sidebar-label">Dashboard</span>
+            </div>
+            <div class="sidebar-item" data-section="agents" onclick="switchSection('agents')">
+                <span class="sidebar-icon">🤖</span>
+                <span class="sidebar-label">Agents</span>
+            </div>
+            <div class="sidebar-item" data-section="memory" onclick="switchSection('memory')">
+                <span class="sidebar-icon">🧠</span>
+                <span class="sidebar-label">Memory</span>
+            </div>
+            <div class="sidebar-item" data-section="tasks" onclick="switchSection('tasks')">
+                <span class="sidebar-icon">📋</span>
+                <span class="sidebar-label">Tasks</span>
+            </div>
+            <div class="sidebar-item" data-section="costs" onclick="switchSection('costs')">
+                <span class="sidebar-icon">💰</span>
+                <span class="sidebar-label">Costs</span>
+            </div>
+            <div class="sidebar-item" data-section="actions" onclick="switchSection('actions')">
+                <span class="sidebar-icon">⚡</span>
+                <span class="sidebar-label">Actions</span>
+            </div>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-toggle-btn" onclick="toggleSidebar()">
+                <span class="sidebar-icon">🌙</span>
+                <span class="sidebar-label" id="sidebar-theme-label">Dark</span>
+            </div>
+        </div>
+    </nav>
+
+    <button class="hamburger" onclick="toggleSidebar()">☰</button>
+
+    <div class="main-content">
     <header>
         <div class="logo-group">
             <svg class="logo-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -427,13 +767,7 @@
         </div>
     </header>
 
-    <div class="tabs">
-        <button class="tab active" onclick="switchTab('overview')">System Overview</button>
-        <button class="tab" onclick="switchTab('agents')">Agent Fleet<span id="agent-badge" class="tab-badge" style="display:none"></span></button>
-        <button class="tab" onclick="switchTab('ops')">Ops Intel<span id="ops-badge" class="tab-badge" style="display:none;background:var(--warn);color:#000;box-shadow:0 0 6px var(--warn)"></span></button>
-    </div>
-
-    <div id="tab-overview" class="tab-content active">
+    <div id="section-dashboard" class="section-content active">
         <div class="grid">
             <div class="status-row">
             <div class="glass stat"><div class="lbl">CPU</div><div class="val" id="cpu">--%</div></div>
@@ -524,14 +858,14 @@
 
     </div>
 
-    <div id="tab-agents" class="tab-content">
+    <div id="section-agents" class="section-content">
         <div class="agent-grid" id="agent-grid">
             <div class="skel" style="height:160px;border-radius:12px"></div>
             <div class="skel" style="height:160px;border-radius:12px"></div>
         </div>
     </div>
 
-    <div id="tab-ops" class="tab-content">
+    <div id="section-costs" class="section-content">
         <div class="grid">
             <div class="cost-row">
                 <div class="glass stat"><div class="lbl">Today Cost</div><div class="val" id="cost-today">--</div><div class="lbl" id="cost-today-tok"></div></div>
@@ -645,6 +979,72 @@ function switchTab(tabId) {
     if (tabId === 'agents') loadAgents();
     if (tabId === 'ops') loadOps();
 }
+
+// Sidebar Navigation Functions
+function switchSection(section) {
+    currentTab = section;
+    
+    // Update sidebar nav items
+    document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+    document.querySelector(`.sidebar-item[data-section="${section}"]`)?.classList.add('active');
+    
+    // Map sections to tab content
+    const sectionMap = {
+        'dashboard': 'overview',
+        'agents': 'agents',
+        'memory': 'overview',
+        'tasks': 'overview',
+        'costs': 'ops',
+        'actions': 'overview'
+    };
+    
+    const tabId = sectionMap[section] || 'overview';
+    
+    // Show/hide content sections
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`)?.classList.add('active');
+    
+    // Scroll to specific panels if needed
+    if (section === 'memory') {
+        setTimeout(() => document.querySelector('.memory-panel')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } else if (section === 'tasks') {
+        setTimeout(() => document.querySelector('.todo-list')?.closest('.glass')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } else if (section === 'actions') {
+        setTimeout(() => document.querySelector('#action-grid')?.closest('.glass')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+    
+    // Load section-specific data
+    if (tabId === 'agents') loadAgents();
+    if (tabId === 'ops') loadOps();
+    
+    // Close sidebar on mobile after selection
+    if (window.innerWidth <= 768) {
+        closeSidebar();
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    sidebar.classList.toggle('open');
+    overlay?.classList.toggle('active');
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    sidebar.classList.remove('open');
+    overlay?.classList.remove('active');
+}
+
+// Keyboard shortcut: [ to toggle sidebar
+document.addEventListener('keydown', (e) => {
+    if (e.key === '[' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            toggleSidebar();
+        }
+    }
+});
 
 function buildAgentTree(sessions) {
     const roots = [];
@@ -1353,5 +1753,6 @@ setInterval(() => {
 
 load();
 </script>
+    </div><!-- /.main-content -->
 </body>
 </html>

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenClaw Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0a0a0f;
+            --card: rgba(20, 20, 28, 0.7);
+            --cyan: #00d4ff;
+            --purple: #a855f7;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --border: rgba(255,255,255,0.08);
+            --error: #ef4444;
+            --warn: #f59e0b;
+            --ok: #22c55e;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            background-image: radial-gradient(circle at 20% 80%, rgba(0,212,255,0.03) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(168,85,247,0.03) 0%, transparent 50%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 24px;
+        }
+        .glass { background: var(--card); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: opacity 0.3s; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+        .header-actions { display:flex; gap:10px; align-items:center; }
+        .btn { border:1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; }
+        .btn:hover { border-color: rgba(0,212,255,0.4); color: var(--cyan); }
+        h1 { font-size: 26px; font-weight: 600; background: linear-gradient(135deg, var(--cyan), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .meta { display: flex; gap: 20px; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--muted); }
+        .live { color: var(--cyan); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+        .grid { display: grid; gap: 20px; margin-bottom: 24px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .status-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        @media (max-width: 1024px) { .status-row { grid-template-columns: repeat(2, 1fr); } .memory-panel { grid-column: 1 / -1 !important; } }
+        @media (max-width: 640px) { .status-row { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } .meta { gap: 12px; font-size: 12px; } }
+        .stat { text-align: center; }
+        .stat .val { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 500; color: var(--cyan); margin: 8px 0; }
+        .stat .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+        .panel-header { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .panel-header .pulse { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; }
+        .pulse.green { background: var(--ok); }
+        .pulse.amber { background: var(--warn); }
+        .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .row:last-child { border-bottom: none; }
+        .row .lbl { color: var(--muted); font-size: 13px; }
+        .row .val { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+        .row .val.error { color: var(--error); }
+        .provider { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 8px; }
+        .badge { padding: 3px 10px; border-radius: 20px; font-size: 10px; text-transform: uppercase; font-weight: 600; }
+        .badge.ok { background: rgba(34,197,94,0.2); color: var(--ok); }
+        .badge.missing { background: rgba(239,68,68,0.2); color: var(--error); }
+        .skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+        .skill { padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; text-align: center; transition: transform 0.2s; }
+        .skill:hover { transform: translateY(-2px); }
+        .skill.installed { background: rgba(0,212,255,0.15); color: var(--cyan); }
+        .skill.missing { background: rgba(255,255,255,0.05); color: var(--muted); }
+        .memory-content { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; max-height: 300px; overflow-y: auto; white-space: pre-wrap; color: var(--muted); }
+        .memory-content::-webkit-scrollbar { width: 6px; }
+        .memory-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .date-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .chip { padding: 4px 10px; border-radius: 20px; font-size: 11px; background: rgba(255,255,255,0.05); color: var(--muted); cursor: pointer; transition: all 0.2s; }
+        .chip:hover, .chip.active { background: var(--cyan); color: #000; }
+        
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .tab { padding: 8px 16px; font-size: 14px; font-weight: 500; color: var(--muted); background: transparent; border: none; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+        .tab:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .tab.active { background: rgba(0,212,255,0.15); color: var(--cyan); border-bottom: 2px solid var(--cyan); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }
+        .agent-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .agent-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .agent-name { font-size: 14px; font-weight: 600; color: #fff; }
+        .agent-type { font-size: 11px; text-transform: uppercase; color: var(--cyan); background: rgba(0,212,255,0.1); padding: 3px 8px; border-radius: 12px; }
+        .agent-body { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+        .agent-row { display: flex; justify-content: space-between; }
+        .agent-lbl { color: var(--muted); }
+        .agent-val { font-family: 'JetBrains Mono', monospace; }
+        .agent-status { display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.idle { background: var(--muted); }
+        .status-dot.working { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+        .status-dot.error { background: var(--error); box-shadow: 0 0 8px var(--error); }
+        .issue { padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+        .issue.error { background: rgba(239,68,68,0.1); border-left: 3px solid var(--error); }
+        .issue.warning { background: rgba(245,158,11,0.1); border-left: 3px solid var(--warn); }
+        .nominal { padding: 20px; text-align: center; color: var(--ok); font-size: 14px; }
+        .provider-name { font-weight: 500; }
+        .provider-msg { font-size: 11px; color: var(--muted); margin-right: 8px; }
+        .progress-wrap { margin-bottom: 12px; }
+        .progress-row { display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:12px; margin-bottom:8px; color:var(--muted); }
+        .progress-bar { height:8px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden; }
+        .progress-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--cyan),var(--purple)); transition:width .3s ease; }
+        .todo-list { font-size:13px; display:flex; flex-direction:column; gap:12px; }
+        .todo-project { padding:10px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); }
+        .todo-project-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; cursor:pointer; padding: 4px; border-radius: 4px; transition: background 0.2s; }
+        .todo-project-head:hover { background: rgba(255,255,255,0.08); }
+        .todo-items { display:none; flex-direction:column; gap:8px; margin-top: 8px; }
+        .todo-project.active .todo-items { display:flex; }
+        .accordion-icon { transition: transform 0.2s; display: inline-block; width: 12px; }
+        .todo-project.active .accordion-icon { transform: rotate(90deg); }
+        .todo-project-name { font-weight:600; color:var(--cyan); }
+        .todo-project-meta { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); }
+
+        .todo-item { padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.04); }
+        .todo-item.done { opacity:.65; text-decoration:line-through; }
+        .action-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:10px; }
+        .action-btn { text-align:left; font-size:12px; padding:10px 12px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text); border-radius:8px; cursor:pointer; }
+        .action-btn:hover { border-color: rgba(0,212,255,0.4); color: var(--cyan); }
+        .action-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .action-result { margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; color:var(--muted); background:rgba(0,0,0,.2); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:44px; max-height:250px; overflow-y:auto; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>OpenClaw Command Center</h1>
+        <div class="meta">
+            <span class="live" id="clock">--:--:--</span>
+            <span id="last-refresh">--:--:--</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div class="dot"></div>
+                <span id="countdown">30s</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn" onclick="load()">Refresh now</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('overview')">System Overview</button>
+        <button class="tab" onclick="switchTab('agents')">Agent Fleet</button>
+    </div>
+
+    <div id="tab-overview" class="tab-content active">
+        <div class="grid">
+            <div class="status-row">
+            <div class="glass stat"><div class="lbl">CPU</div><div class="val" id="cpu">--%</div></div>
+            <div class="glass stat"><div class="lbl">RAM</div><div class="val" id="ram">-- / -- GB</div></div>
+            <div class="glass stat"><div class="lbl">Disk</div><div class="val" id="disk">-- / -- GB</div></div>
+            <div class="glass stat"><div class="lbl">Uptime</div><div class="val" id="uptime">--</div></div>
+        </div>
+
+        <div class="glass">
+            <div class="panel-header"><div class="pulse green" id="monitor-pulse"></div>Monitor State</div>
+            <div class="row"><span class="lbl">Last Check</span><span class="val" id="last-check">--</span></div>
+            <div class="row"><span class="lbl">Rate Limits</span><span class="val" id="rate-limits">--</span></div>
+            <div class="row"><span class="lbl">Last Alert</span><span class="val" id="last-alert">--</span></div>
+        </div>
+
+        <div class="glass">
+            <div class="panel-header">Provider Status</div>
+            <div id="providers" style="font-size:12px;">Loading...</div>
+        </div>
+
+        <div class="glass" style="grid-column: 1 / -1;">
+            <div class="panel-header">Skills Inventory</div>
+            <div class="skills" id="skills">Loading...</div>
+        </div>
+
+        <div class="glass memory-panel" style="grid-column: span 2;">
+            <div class="panel-header">Memory Log <span id="mem-date" style="color:var(--cyan);"></span></div>
+            <div class="date-chips" id="date-chips"></div>
+            <div class="memory-content" id="memory-content">Loading...</div>
+        </div>
+
+        <div class="glass">
+            <div class="panel-header">Alerts Panel</div>
+            <div id="issues">Loading...</div>
+        </div>
+
+        <div class="glass" style="grid-column: 1 / -1;">
+            <div class="panel-header">Action Center</div>
+            <div id="action-grid" class="action-grid">Loading...</div>
+            <div id="action-result" class="action-result">No actions run yet.</div>
+        </div>
+
+        <div class="glass" style="grid-column: 1 / -1;">
+            <div class="panel-header">TODO / Progress</div>
+            <div class="progress-wrap">
+                <div class="progress-row"><span id="todo-summary">0 / 0 done</span><span id="todo-percent">0%</span></div>
+                <div class="progress-bar"><div class="progress-fill" id="todo-fill"></div></div>
+            </div>
+            <div class="todo-list" id="todo-list">Loading...</div>
+        </div>
+    </div>
+
+    <div id="tab-agents" class="tab-content">
+        <div class="agent-grid" id="agent-grid">
+            <div style="color:var(--muted); padding:20px; text-align:center; width:100%; grid-column:1/-1;">Loading agent fleet...</div>
+        </div>
+    </div>
+
+<script>
+let currentTab = 'overview';
+
+function switchTab(tabId) {
+    currentTab = tabId;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    
+    document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    
+    if (tabId === 'agents') {
+        loadAgents();
+    }
+}
+
+async function loadAgents() {
+    try {
+        const r = await fetch(API_BASE + '/agents').then(r => r.json());
+        if (!r.ok || !r.sessions) throw new Error(r.error || 'Failed to load agents');
+        
+        const grid = document.getElementById('agent-grid');
+        if (r.sessions.length === 0) {
+            grid.innerHTML = `<div style="color:var(--muted); padding:20px; text-align:center; width:100%; grid-column:1/-1;">No active agents found in the last 24 hours.</div>`;
+            return;
+        }
+
+        const cards = r.sessions.map(s => {
+            const isCron = s.key.includes('cron:');
+            const isGroup = s.kind === 'group';
+            
+            let typeName = 'Main Session';
+            if (isCron) typeName = 'Cron Monitor';
+            else if (s.agentId !== 'main') typeName = `Sub-agent (${s.agentId})`;
+            else if (isGroup) typeName = 'Group Chat';
+
+            const isActiveNow = s.ageMs < 120000; // Updated in last 2 mins
+            let statusClass = isActiveNow ? 'working' : 'idle';
+            let statusText = isActiveNow ? 'Working' : 'Idle';
+
+            // Aborted or failed
+            if (s.abortedLastRun) {
+                statusClass = 'error';
+                statusText = 'Aborted / Error';
+            }
+
+            const formatTime = (ms) => {
+                if (ms < 60000) return `${Math.floor(ms/1000)}s ago`;
+                if (ms < 3600000) return `${Math.floor(ms/60000)}m ago`;
+                return `${Math.floor(ms/3600000)}h ago`;
+            };
+
+            return `
+            <div class="agent-card">
+                <div class="agent-header">
+                    <span class="agent-name" title="${s.key}">${s.sessionId.substring(0, 8)}...${s.sessionId.slice(-4)}</span>
+                    <span class="agent-type">${typeName}</span>
+                </div>
+                <div class="agent-body">
+                    <div class="agent-row">
+                        <span class="agent-lbl">Status</span>
+                        <div class="agent-status"><div class="status-dot ${statusClass}"></div><span class="agent-val">${statusText}</span></div>
+                    </div>
+                    <div class="agent-row"><span class="agent-lbl">Model</span><span class="agent-val">${s.model || 'unknown'}</span></div>
+                    <div class="agent-row"><span class="agent-lbl">Tokens</span><span class="agent-val">${(s.totalTokens || 0).toLocaleString()}</span></div>
+                    <div class="agent-row"><span class="agent-lbl">Last Active</span><span class="agent-val">${formatTime(s.ageMs)}</span></div>
+                </div>
+            </div>`;
+        }).join('');
+        
+        grid.innerHTML = cards;
+    } catch (e) {
+        document.getElementById('agent-grid').innerHTML = `<div style="color:var(--error); padding:20px; text-align:center; width:100%; grid-column:1/-1;">Error: ${e.message}</div>`;
+    }
+}
+
+const REFRESH_INTERVAL = 30;
+let nextRefresh = Date.now() + REFRESH_INTERVAL * 1000;
+let openProjects = new Set();
+
+function toggleProjectAccordion(projectName) {
+    if (openProjects.has(projectName)) {
+        openProjects.delete(projectName);
+    } else {
+        openProjects.add(projectName);
+    }
+    const projectDiv = document.getElementById("project-" + projectName.replace(/[^a-zA-Z0-9]/g, ""));
+    if (projectDiv) {
+        projectDiv.classList.toggle("active");
+    }
+}
+
+function fmtTime(d) {
+    return new Date(d).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'});
+}
+
+function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+
+const API_BASE = window.location.pathname.startsWith('/dashboard') ? '/dashboard/api' : '/api';
+
+async function get(endpoint) {
+    try { return await (await fetch(API_BASE + '/' + endpoint)).json(); } catch(e) { return {}; }
+}
+
+async function post(endpoint, body) {
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body || {})
+    });
+    return res.json();
+}
+
+async function load() {
+    document.body.style.opacity = '0.7';
+    if (currentTab === 'agents') loadAgents();
+    const [s, m, p, sk, mem, is, td, ac] = await Promise.all([
+        get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos'), get('actions')
+    ]);
+
+    document.getElementById('cpu').textContent = (escapeHtml(s.cpu_percent) || '--') + '%';
+    document.getElementById('ram').textContent = (escapeHtml(s.ram_gb) || '--') + ' / ' + (escapeHtml(s.ram_total_gb) || '--') + ' GB';
+    document.getElementById('disk').textContent = (escapeHtml(s.disk_gb) || '--') + ' / ' + (escapeHtml(s.disk_total_gb) || '--') + ' GB';
+    document.getElementById('uptime').textContent = escapeHtml(s.uptime) || '--';
+
+    document.getElementById('monitor-pulse').className = 'pulse ' + ((m.lastRateLimitCount||0)>0 ? 'amber' : 'green');
+    document.getElementById('last-check').textContent = m.lastCheckAt ? fmtTime(m.lastCheckAt) : 'Never';
+    document.getElementById('rate-limits').textContent = escapeHtml(m.lastRateLimitCount) || 0;
+    document.getElementById('rate-limits').className = 'val ' + ((m.lastRateLimitCount||0)>0 ? 'error' : '');
+    document.getElementById('last-alert').textContent = m.lastAlertAt ? fmtTime(m.lastAlertAt) : 'None';
+
+    const providers = p.providers || [];
+    document.getElementById('providers').innerHTML = providers.length
+      ? providers.map(x => {
+          const safeStatus = x.status === 'ok' ? 'ok' : 'missing';
+          return `<div class="provider"><span class="provider-name">${escapeHtml(x.name)}</span>
+            <div style="display:flex;align-items:center"><span class="provider-msg">${escapeHtml(x.message)}</span><span class="badge ${safeStatus}">${escapeHtml(x.status || 'unknown')}</span></div></div>`;
+        }).join('')
+      : '<div class="nominal">No providers detected</div>';
+
+    const skills = sk.skills || [];
+    document.getElementById('skills').innerHTML = skills.length
+      ? skills.map(x =>
+        `<div class="skill ${x.installed?'installed':'missing'}" title="${escapeHtml(x.description||'')}">${escapeHtml(x.name)}</div>`
+      ).join('')
+      : '<div class="nominal">No skills data</div>';
+
+    document.getElementById('mem-date').textContent = mem.date ? '(' + mem.date + ')' : '';
+    document.getElementById('memory-content').textContent = mem.content || 'No memory files';
+    document.getElementById('date-chips').innerHTML = (mem.all_dates||[]).map(d =>
+        `<div class="chip ${d===mem.date?'active':''}" data-date="${escapeHtml(d)}" onclick="switchMem(this.getAttribute('data-date'), this)">${escapeHtml(d)}</div>`
+    ).join('');
+
+    const iel = document.getElementById('issues');
+    if (is.nominal) iel.innerHTML = '<div class="nominal">All systems nominal</div>';
+    else iel.innerHTML = (is.issues||[]).map(i => `<div class="issue ${escapeHtml(i.level)}">${escapeHtml(i.message)}</div>`).join('');
+
+    const actions = ac.actions || [];
+    document.getElementById('action-grid').innerHTML = actions.length
+      ? actions.map(a => `<button class="action-btn" ${a.cooldown_left > 0 ? 'disabled' : ''} onclick="runAction('${escapeHtml(a.id)}')">${escapeHtml(a.label)}${a.cooldown_left > 0 ? `\n(cooldown: ${escapeHtml(a.cooldown_left)}s)` : ''}</button>`).join('')
+      : '<div class="nominal">No actions configured</div>';
+
+    document.getElementById('todo-summary').textContent = `${escapeHtml(td.done) || 0} / ${escapeHtml(td.total) || 0} done`;
+    document.getElementById('todo-percent').textContent = `${escapeHtml(td.percent) || 0}%`;
+    document.getElementById('todo-fill').style.width = `${escapeHtml(td.percent) || 0}%`;
+    const tel = document.getElementById('todo-list');
+    const projects = td.projects || [];
+    tel.innerHTML = projects.length
+      ? projects.map(p => `
+        <div class="todo-project ${openProjects.has(p.name) ? 'active' : ''}" id="project-${p.name.replace(/[^a-zA-Z0-9]/g, '')}">
+          <div class="todo-project-head" onclick="toggleProjectAccordion('${p.name}')">
+            <div class="todo-project-name"><span class="accordion-icon">▶</span> ${escapeHtml(p.name)}</div>
+            <div class="todo-project-meta">${escapeHtml(p.done)}/${escapeHtml(p.total)} • ${escapeHtml(p.percent)}%</div>
+          </div>
+          <div class="todo-items">
+            ${(p.items||[]).map(t => `<div class="todo-item ${t.done ? 'done' : ''}"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;"><input type="checkbox" ${t.done ? 'checked' : ''} data-path="${escapeHtml(p.path)}" data-lineno="${t.line_no ?? -1}" data-done="${t.done ? 'true' : 'false'}" onchange="toggleTodo(this.getAttribute('data-path'), parseInt(this.getAttribute('data-lineno'), 10), this.getAttribute('data-done') === 'true')" /> <span>${escapeHtml(t.text)}</span></label></div>`).join('')}
+          </div>
+        </div>
+      `).join('')
+      : '<div class="nominal">No TODO items found in project TODO.md files</div>';
+
+    document.getElementById('last-refresh').textContent = fmtTime(new Date());
+    nextRefresh = Date.now() + REFRESH_INTERVAL * 1000;
+    document.body.style.opacity = '1';
+}
+
+async function switchMem(date, el) {
+    const d = await get('memory?date=' + encodeURIComponent(date));
+    document.getElementById('memory-content').textContent = d.content || 'No data';
+    document.getElementById('mem-date').textContent = '(' + (d.date||'') + ')';
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+}
+
+async function toggleTodo(path, lineNo, currentDone) {
+    try {
+        const r = await post(API_BASE + '/todos/toggle', { path, line_no: lineNo, done: !currentDone });
+        if (!r.ok) {
+            alert('Update failed: ' + (r.error || 'unknown error'));
+            return;
+        }
+        await load();
+    } catch (e) {
+        alert('Update failed: ' + e.message);
+    }
+}
+
+async function runAction(actionId) {
+    const out = document.getElementById('action-result');
+    out.textContent = `Running ${actionId} ...`;
+    try {
+        const r = await post(API_BASE + '/actions/run', { action: actionId });
+        if (!r.ok) {
+            out.textContent = `[FAIL] ${r.label || actionId}\nerror: ${r.error || 'unknown'}\n${r.stderr || ''}`.trim();
+            await load();
+            return;
+        }
+        const summary = [
+            `[OK] ${r.label || actionId}`,
+            `exit: ${r.exit_code}`,
+            r.stdout ? `stdout:\n${r.stdout}` : '',
+            r.stderr ? `stderr:\n${r.stderr}` : '',
+        ].filter(Boolean).join('\n\n');
+        out.textContent = summary;
+        await load();
+    } catch (e) {
+        out.textContent = `[FAIL] ${actionId}\n${e.message}`;
+    }
+}
+
+setInterval(() => {
+    document.getElementById('clock').textContent = fmtTime(new Date());
+    document.getElementById('countdown').textContent = Math.max(0, Math.ceil((nextRefresh-Date.now())/1000)) + 's';
+}, 1000);
+
+setInterval(load, REFRESH_INTERVAL * 1000);
+load();
+</script>
+</body>
+</html>
