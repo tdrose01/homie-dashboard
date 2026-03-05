@@ -990,21 +990,15 @@ function switchSection(section) {
     document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
     document.querySelector(`.sidebar-item[data-section="${section}"]`)?.classList.add('active');
     
-    // Map sections to tab content
-    const sectionMap = {
-        'dashboard': 'overview',
-        'agents': 'agents',
-        'memory': 'overview',
-        'tasks': 'overview',
-        'costs': 'ops',
-        'actions': 'overview'
-    };
-    
-    const tabId = sectionMap[section] || 'overview';
-    
-    // Show/hide content sections
-    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-    document.getElementById(`tab-${tabId}`)?.classList.add('active');
+    // Show/hide SECTION content (not tab-content)
+    document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
+    const sectionEl = document.getElementById(`section-${section}`);
+    if (sectionEl) {
+        sectionEl.classList.add('active');
+    } else {
+        // Fallback to dashboard if section doesn't exist
+        document.getElementById('section-dashboard')?.classList.add('active');
+    }
     
     // Scroll to specific panels if needed
     if (section === 'memory') {
@@ -1016,8 +1010,8 @@ function switchSection(section) {
     }
     
     // Load section-specific data
-    if (tabId === 'agents') loadAgents();
-    if (tabId === 'ops') loadOps();
+    if (section === 'agents') loadAgents();
+    if (section === 'costs') loadOps();
     
     // Close sidebar on mobile after selection
     if (window.innerWidth <= 768) {
