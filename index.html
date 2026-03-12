@@ -274,6 +274,7 @@
         .agent-row { display: flex; justify-content: space-between; }
         .agent-lbl { color: var(--muted); }
         .agent-val { font-family: 'JetBrains Mono', monospace; }
+        .task-summary { color: var(--accent); font-size: 0.85em; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .agent-status { display: flex; align-items: center; gap: 6px; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; }
         .status-dot.idle { background: var(--muted); }
@@ -1076,7 +1077,7 @@ function buildAgentTree(sessions) {
     return roots;
 }
 
-function agentCardHTML(s, isRoot) {
+function agentCardHTML(s, isRoot, taskSummary) {
     const sessionId = s.sessionId || 'unknown';
     let typeName = 'Main Session';
     if (s.agentId && s.agentId !== 'main' && s.agentId !== 'default') typeName = `Sub-agent (${s.agentId})`;
@@ -1086,6 +1087,7 @@ function agentCardHTML(s, isRoot) {
     if (s.abortedLastRun) { stCls = 'error'; stTxt = 'Aborted / Error'; }
     const shortId = sessionId.length > 8 ? sessionId.substring(0, 8) + '...' + sessionId.slice(-4) : sessionId;
     const childCount = (s.children || []).length;
+    const taskHtml = taskSummary ? `<div class="agent-row"><span class="agent-lbl">Last Task</span><span class="agent-val task-summary" title="${escapeHtml(taskSummary)}">${escapeHtml(taskSummary.substring(0, 50))}${taskSummary.length > 50 ? '...' : ''}</span></div>` : '';
     return `<div class="agent-card ${isRoot ? 'tree-root' : 'tree-leaf'}">
         <div class="agent-header">
             <span class="agent-name" title="${escapeHtml(s.key || '')}">${escapeHtml(shortId)}</span>
@@ -1099,17 +1101,34 @@ function agentCardHTML(s, isRoot) {
             <div class="agent-row"><span class="agent-lbl">Model</span><span class="agent-val">${escapeHtml(s.model || 'unknown')}</span></div>
             <div class="agent-row"><span class="agent-lbl">Tokens</span><span class="agent-val">${(s.totalTokens || 0).toLocaleString()}</span></div>
             <div class="agent-row"><span class="agent-lbl">Last Active</span><span class="agent-val">${fmtAge(s.ageMs)}</span></div>
+            ${taskHtml}
         </div>
     </div>`;
 }
 
 async function loadAgents() {
     try {
-        const r = await fetch(API_BASE + '/agents').then(r => r.json());
-        if (!r.ok || !r.sessions) throw new Error(r.error || 'Failed to load agents');
+        // Fetch both agents and tasks in parallel
+        const [agentsRes, tasksRes] = await Promise.all([
+            fetch(API_BASE + '/agents').then(r => r.json()),
+            fetch(API_BASE + '/agent-tasks').then(r => r.json())
+        ]);
+        
+        if (!agentsRes.ok || !agentsRes.sessions) throw new Error(agentsRes.error || 'Failed to load agents');
+        
+        // Build a map of agent -> last task
+        const agentTasks = {};
+        if (tasksRes.ok && tasksRes.tasks) {
+            for (const task of tasksRes.tasks) {
+                const agentKey = task.agent || 'main';
+                if (!agentTasks[agentKey]) {
+                    agentTasks[agentKey] = task.result_summary || task.status;
+                }
+            }
+        }
 
         const grid = document.getElementById('agent-grid');
-        const tree = buildAgentTree(r.sessions);
+        const tree = buildAgentTree(agentsRes.sessions);
         const hasChildren = tree.some(n => (n.children || []).length > 0);
 
         if (tree.length === 0) {
@@ -1121,15 +1140,22 @@ async function loadAgents() {
         if (hasChildren) {
             grid.className = 'agent-grid tree-view';
             grid.innerHTML = tree.map(node => {
-                let html = `<div class="tree-node">${agentCardHTML(node, true)}`;
+                const nodeTask = agentTasks[node.agentId] || agentTasks['main'];
+                let html = `<div class="tree-node">${agentCardHTML(node, true, nodeTask)}`;
                 if (node.children.length > 0) {
-                    html += `<div class="tree-children">${node.children.map(c => agentCardHTML(c, false)).join('')}</div>`;
+                    html += `<div class="tree-children">${node.children.map(c => {
+                        const childTask = agentTasks[c.agentId];
+                        return agentCardHTML(c, false, childTask);
+                    }).join('')}</div>`;
                 }
                 return html + '</div>';
             }).join('');
         } else {
             grid.className = 'agent-grid';
-            grid.innerHTML = tree.map(node => agentCardHTML(node, true)).join('');
+            grid.innerHTML = tree.map(node => {
+                const nodeTask = agentTasks[node.agentId] || agentTasks['main'];
+                return agentCardHTML(node, true, nodeTask);
+            }).join('');
         }
     } catch (e) {
         showToast('Agent fleet: ' + e.message, 'error');

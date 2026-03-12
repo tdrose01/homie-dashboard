@@ -19,7 +19,47 @@ WORKSPACE_PATH = pathlib.Path(WORKSPACE)
 TASKBOARD_FILE = WORKSPACE_PATH / "taskboard-projects.json"
 COST_HISTORY_FILE = BASE_DIR / "cost-history.json"
 
-KNOWN_SKILLS = ["antigravity-code","antigravity-proxy","backup-rotate","claude-antigravity-task","email-sender","morning-brief","nba-analytics","openclaw-superpowers","openrouter-credits","self-improving-agent","subagent-runner","system-check"]
+# Simple TTL cache for expensive functions
+_cache = {}
+def cached(ttl_seconds=30):
+    """Decorator to cache function results with TTL."""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            key = (func.__name__, tuple(args), tuple(sorted(kwargs.items())))
+            now = time.time()
+            if key in _cache:
+                val, ts = _cache[key]
+                if now - ts < ttl_seconds:
+                    return val
+            result = func(*args, **kwargs)
+            _cache[key] = (result, now)
+            return result
+        return wrapper
+    return decorator
+
+# Periodic cache cleanup to prevent memory bloat
+def _cleanup_cache():
+    global _cache
+    now = time.time()
+    _cache = {k: (v, ts) for k, (v, ts) in _cache.items() if now - ts < 300}
+
+def discover_skills():
+    """Auto-discover skills from the skills directory."""
+    skills = []
+    skills_path = pathlib.Path(SKILLS_DIR)
+    if not skills_path.exists():
+        return skills
+    try:
+        for entry in sorted(skills_path.iterdir()):
+            if not entry.is_dir():
+                continue
+            skill_file = entry / "SKILL.md"
+            if not skill_file.exists():
+                continue
+            skills.append(entry.name)
+    except Exception:
+        pass
+    return skills
 
 OPENCLAW_BIN = "/home/rosebud0585/.npm-global/bin/openclaw"
 
@@ -105,6 +145,7 @@ def get_uptime():
     except:
         return "unknown"
 
+@cached(ttl_seconds=30)
 def parse_activities(limit=50):
     acts = []
     try:
@@ -176,6 +217,7 @@ def parse_todo_file(path):
 
 
 def toggle_todo_item(path_str, line_no, new_done):
+    global _cache
     try:
         p = pathlib.Path(path_str).resolve()
         ws = WORKSPACE_PATH.resolve()
@@ -200,6 +242,8 @@ def toggle_todo_item(path_str, line_no, new_done):
         if m:
             lines[line_no] = repl_checkbox(m)
             p.write_text("\n".join(lines) + "\n")
+            # Invalidate todo cache
+            _cache = {k: v for k, v in _cache.items() if not k[0].startswith('parse_todos')}
             return True, "updated"
 
         m2 = re.match(r"^\s*[-*]\s*(✅|☑️|✔️|✔|🟩|🟢|⬜|🔲|❌|⭕)\s+(.+)$", raw)
@@ -207,6 +251,8 @@ def toggle_todo_item(path_str, line_no, new_done):
             mark = "✅" if new_done else "⬜"
             lines[line_no] = f"- {mark} {m2.group(2)}"
             p.write_text("\n".join(lines) + "\n")
+            # Invalidate todo cache
+            _cache = {k: v for k, v in _cache.items() if not k[0].startswith('parse_todos')}
             return True, "updated"
 
         return False, "Line is not a task item"
@@ -252,6 +298,7 @@ def run_allowed_action(action_id):
         return {"ok": False, "error": str(e)}, 500
 
 
+@cached(ttl_seconds=30)
 def parse_todos():
     projects = []
     grand_total = 0
@@ -341,46 +388,54 @@ def parse_todos():
     grand_pct = round((grand_done / grand_total) * 100) if grand_total else 0
     return {"projects": projects, "total": grand_total, "done": grand_done, "percent": grand_pct}
 
+@cached(ttl_seconds=10)
+def _fetch_all_sessions():
+    """Unified session fetcher - called once, used by costs and crons."""
+    try:
+        proc = subprocess.run(
+            [OPENCLAW_BIN, "sessions", "--all-agents", "--json"],
+            capture_output=True, text=True, timeout=10
+        )
+        if proc.returncode == 0:
+            return json.loads(proc.stdout).get("sessions", [])
+    except Exception:
+        pass
+    return []
+
+
+@cached(ttl_seconds=10)
 def get_session_costs():
     result = {
         "today_cost": 0.0, "alltime_cost": 0.0, "projected_monthly": 0.0,
         "today_tokens": 0, "alltime_tokens": 0,
         "models": [], "session_count": 0,
     }
-    try:
-        proc = subprocess.run(
-            [OPENCLAW_BIN, "sessions", "--all-agents", "--json"],
-            capture_output=True, text=True, timeout=10
-        )
-        if proc.returncode != 0:
-            return result
-        data = json.loads(proc.stdout)
-        sessions = data.get("sessions", [])
-        model_agg = {}
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        for s in sessions:
-            model = s.get("model", "unknown")
-            tokens = s.get("totalTokens", 0) or 0
-            cost = float(s.get("totalCost", 0) or 0)
-            if model not in model_agg:
-                model_agg[model] = {"model": model, "tokens": 0, "cost": 0.0, "sessions": 0}
-            model_agg[model]["tokens"] += tokens
-            model_agg[model]["cost"] += cost
-            model_agg[model]["sessions"] += 1
-            result["alltime_cost"] += cost
-            result["alltime_tokens"] += tokens
-            result["session_count"] += 1
-            if today_str in str(s.get("createdAt", "")):
-                result["today_cost"] += cost
-                result["today_tokens"] += tokens
-        result["models"] = sorted(model_agg.values(), key=lambda x: x["tokens"], reverse=True)
-        day = datetime.now().day
-        if result["alltime_cost"] > 0 and day > 0:
-            result["projected_monthly"] = round(result["alltime_cost"] / day * 30, 4)
-        elif result["today_cost"] > 0:
-            result["projected_monthly"] = round(result["today_cost"] * 30, 4)
-    except Exception:
-        pass
+    sessions = _fetch_all_sessions()
+    if not sessions:
+        return result
+    model_agg = {}
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    for s in sessions:
+        model = s.get("model", "unknown")
+        tokens = s.get("totalTokens", 0) or 0
+        cost = float(s.get("totalCost", 0) or 0)
+        if model not in model_agg:
+            model_agg[model] = {"model": model, "tokens": 0, "cost": 0.0, "sessions": 0}
+        model_agg[model]["tokens"] += tokens
+        model_agg[model]["cost"] += cost
+        model_agg[model]["sessions"] += 1
+        result["alltime_cost"] += cost
+        result["alltime_tokens"] += tokens
+        result["session_count"] += 1
+        if today_str in str(s.get("createdAt", "")):
+            result["today_cost"] += cost
+            result["today_tokens"] += tokens
+    result["models"] = sorted(model_agg.values(), key=lambda x: x["tokens"], reverse=True)
+    day = datetime.now().day
+    if result["alltime_cost"] > 0 and day > 0:
+        result["projected_monthly"] = round(result["alltime_cost"] / day * 30, 4)
+    elif result["today_cost"] > 0:
+        result["projected_monthly"] = round(result["today_cost"] * 30, 4)
     for k in ("today_cost", "alltime_cost", "projected_monthly"):
         result[k] = round(result[k], 4)
     return result
@@ -427,36 +482,71 @@ def record_daily_snapshot(costs):
     return hist
 
 
+@cached(ttl_seconds=60)
 def get_cron_sessions():
+    """Get cron session status using shared session cache."""
+    sessions = _fetch_all_sessions()
+    crons = []
+    for s in sessions:
+        key = s.get("key", "")
+        if "cron:" not in key:
+            continue
+        age = s.get("ageMs", 999999)
+        # Filter to sessions active in last 72 hours (4320 mins)
+        if age > 4320 * 60 * 1000:
+            continue
+        aborted = s.get("abortedLastRun", False)
+        status = "error" if aborted else ("active" if age < 300000 else "idle")
+        crons.append({
+            "name": key.split("cron:", 1)[-1].strip() or key,
+            "status": status,
+            "model": s.get("model", "unknown"),
+            "last_run_ms": age,
+            "tokens": s.get("totalTokens", 0),
+            "session_id": s.get("sessionId", ""),
+        })
+    return {"ok": True, "crons": crons}
+
+
+MEMORY_DB = f"{WORKSPACE}/memory_system/openclaw_memory.db"
+
+@cached(ttl_seconds=30)
+def get_agent_tasks(limit=20):
+    """Fetch recent tasks from memory system SQLite database."""
+    tasks = []
     try:
-        proc = subprocess.run(
-            [OPENCLAW_BIN, "sessions", "--all-agents", "--active", "4320", "--json"],
-            capture_output=True, text=True, timeout=10
-        )
-        if proc.returncode == 0:
-            data = json.loads(proc.stdout)
-            crons = []
-            for s in data.get("sessions", []):
-                key = s.get("key", "")
-                if "cron:" not in key:
-                    continue
-                age = s.get("ageMs", 999999)
-                aborted = s.get("abortedLastRun", False)
-                status = "error" if aborted else ("active" if age < 300000 else "idle")
-                crons.append({
-                    "name": key.split("cron:", 1)[-1].strip() or key,
-                    "status": status,
-                    "model": s.get("model", "unknown"),
-                    "last_run_ms": age,
-                    "tokens": s.get("totalTokens", 0),
-                    "session_id": s.get("sessionId", ""),
-                })
-            return {"ok": True, "crons": crons}
+        import sqlite3
+        if not pathlib.Path(MEMORY_DB).exists():
+            return {"ok": True, "tasks": [], "error": "Memory DB not found"}
+        conn = sqlite3.connect(MEMORY_DB)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, session_id, task_id, agent, model, status, 
+                   prompt_tokens, completion_tokens, result_summary, created_at
+            FROM task_log
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (limit,))
+        for row in cur.fetchall():
+            tasks.append({
+                "id": row["id"],
+                "session_id": row["session_id"],
+                "task_id": row["task_id"],
+                "agent": row["agent"],
+                "model": row["model"],
+                "status": row["status"],
+                "prompt_tokens": row["prompt_tokens"],
+                "completion_tokens": row["completion_tokens"],
+                "result_summary": row["result_summary"],
+                "created_at": row["created_at"]
+            })
+        conn.close()
+        return {"ok": True, "tasks": tasks}
     except Exception as e:
-        return {"ok": False, "error": str(e), "crons": []}
-    return {"ok": False, "crons": []}
+        return {"ok": True, "tasks": [], "error": str(e)}
 
-
+@cached(ttl_seconds=30)
 def get_rate_limits():
     limits = []
     try:
@@ -536,6 +626,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_json({"ok": False, "error": str(e)}, 500)
 
     def do_GET(self):
+        # Periodic cache cleanup (every ~100 requests)
+        if len(_cache) > 50:
+            _cleanup_cache()
         try:
             path = self.path.split("?")[0]
             if path.startswith("/dashboard"):
@@ -567,20 +660,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 except:
                     self.send_json({"lastCheckAt": None, "lastRateLimitCount": 0, "lastAlertAt": None})
             elif path == "/api/agents":
-                try:
-                    proc = subprocess.run(
-                        ["/home/rosebud0585/.npm-global/bin/openclaw", "sessions", "--all-agents", "--active", "1440", "--json"],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    if proc.returncode == 0:
-                        data = json.loads(proc.stdout)
-                        self.send_json({"ok": True, "sessions": data.get("sessions", [])})
-                    else:
-                        self.send_json({"ok": False, "error": proc.stderr})
-                except Exception as e:
-                    self.send_json({"ok": False, "error": str(e)})
+                # Use shared session cache, filter for active sessions
+                sessions = _fetch_all_sessions()
+                # Filter to sessions active in last 24 hours (1440 mins)
+                active_sessions = [s for s in sessions if s.get("ageMs", 999999) < 1440 * 60 * 1000]
+                self.send_json({"ok": True, "sessions": active_sessions})
+            elif path == "/api/agent-tasks":
+                self.send_json(get_agent_tasks())
             elif path == "/api/gateway-health":
                 result = {"status": "unknown", "restarts": 0, "last_probe": datetime.now().isoformat()}
                 try:
@@ -615,48 +701,93 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     pass
                 self.send_json(result)
             elif path == "/api/providers":
-                # Reflect current setup (Feb 2026):
-                # - Antigravity (Gemini Pro High/Low) is primary "big brain"
-                # - OpenAI Codex is active in main session routing
-                # - Ollama is local/tiny runtime
-                # - OpenRouter and Kimi are intentionally removed from auto-routing
-                try:
-                    ag = subprocess.run(
-                        ["curl", "-fsS", "http://127.0.0.1:8080/health"],
-                        capture_output=True,
-                        timeout=2,
-                        text=True,
-                    ).returncode == 0
-                except:
-                    ag = False
-
-                try:
-                    ollama = subprocess.run(["pgrep", "-x", "ollama"], capture_output=True, timeout=2).returncode == 0
-                except:
-                    ollama = False
-
-                codex_token_hint = bool(os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_TOKEN"))
-
-                self.send_json({"providers": [
-                    {
-                        "name": "Antigravity (Gemini Pro)",
-                        "status": "ok" if ag else "missing",
-                        "message": "Proxy healthy" if ag else "Proxy down"
-                    },
-                    {
-                        "name": "OpenAI Codex",
-                        "status": "ok",
-                        "message": "Auth available" if codex_token_hint else "OAuth/session managed"
-                    },
-                    {
-                        "name": "Ollama (tiny)",
-                        "status": "ok" if ollama else "missing",
-                        "message": "Running" if ollama else "Not running"
-                    }
-                ]})
+                # Dynamic provider detection from openclaw.json
+                providers = []
+                config_path = pathlib.Path("/home/rosebud0585/.openclaw/openclaw.json")
+                
+                if config_path.exists():
+                    try:
+                        config = json.loads(config_path.read_text())
+                        configured = config.get("models", {}).get("providers", {})
+                        
+                        for provider_id, provider_cfg in configured.items():
+                            models = provider_cfg.get("models", [])
+                            if not models:
+                                continue
+                            
+                            # Build display name
+                            display_name = provider_id.title()
+                            model_names = [m.get("name") or m.get("id") for m in models[:2]]
+                            if model_names:
+                                display_name = f"{provider_id.title()} ({', '.join(model_names)})"
+                            
+                            # Health check per provider type
+                            status = "ok"
+                            message = "Configured"
+                            
+                            if provider_id == "ollama":
+                                # Check if ollama process is running
+                                try:
+                                    running = subprocess.run(
+                                        ["pgrep", "-x", "ollama"],
+                                        capture_output=True, timeout=2
+                                    ).returncode == 0
+                                    status = "ok" if running else "missing"
+                                    message = "Running" if running else "Not running"
+                                except:
+                                    status = "missing"
+                                    message = "Check failed"
+                            
+                            elif provider_id == "nvidia":
+                                # NVIDIA NIM — check API key presence
+                                has_key = bool(provider_cfg.get("apiKey") and provider_cfg["apiKey"] != "__OPENCLAW_REDACTED__")
+                                status = "ok" if has_key else "missing"
+                                message = "API key set" if has_key else "No API key"
+                            
+                            elif provider_id == "modal":
+                                # Modal — check API key
+                                has_key = bool(provider_cfg.get("apiKey") and provider_cfg["apiKey"] != "__OPENCLAW_REDACTED__")
+                                status = "ok" if has_key else "missing"
+                                message = "API key set" if has_key else "No API key"
+                            
+                            elif provider_id == "openai-codex":
+                                # Codex — OAuth managed by OpenClaw
+                                status = "ok"
+                                message = "OAuth managed"
+                            
+                            providers.append({
+                                "name": display_name,
+                                "status": status,
+                                "message": message
+                            })
+                        
+                        # Also check auth.profiles for OAuth providers (e.g., openai-codex)
+                        auth_profiles = config.get("auth", {}).get("profiles", {})
+                        for profile_key, profile_cfg in auth_profiles.items():
+                            provider = profile_cfg.get("provider", "")
+                            if provider == "openai-codex":
+                                # Get model aliases to show which Codex model
+                                model_aliases = config.get("agents", {}).get("defaults", {}).get("models", {})
+                                codex_model = "GPT-5.4"
+                                for model_id, alias_cfg in model_aliases.items():
+                                    if "gpt-5.4" in model_id.lower() or alias_cfg.get("alias") == "codex54":
+                                        codex_model = alias_cfg.get("alias", "GPT-5.4").upper()
+                                
+                                providers.append({
+                                    "name": f"OpenAI Codex ({codex_model})",
+                                    "status": "ok",
+                                    "message": "OAuth managed"
+                                })
+                    
+                    except Exception as e:
+                        providers.append({"name": "Config Error", "status": "error", "message": str(e)})
+                else:
+                    providers.append({"name": "No Config", "status": "missing", "message": "openclaw.json not found"})
+                
+                self.send_json({"providers": providers})
             elif path == "/api/skills":
                 skills = []
-                for name in KNOWN_SKILLS:
+                for name in discover_skills():
                     sf = pathlib.Path(f"{SKILLS_DIR}/{name}/SKILL.md")
                     exists = sf.exists()
                     desc = ""
@@ -720,6 +851,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_json(get_cron_sessions())
             elif path == "/api/rate-limits":
                 self.send_json(get_rate_limits())
+            elif path == "/api/agent-tasks":
+                self.send_json(get_agent_tasks())
             elif path == "/api/feed":
                 self.send_json({"ok": True, "entries": parse_activities(limit=100)})
             else:
