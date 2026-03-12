@@ -512,37 +512,61 @@ MEMORY_DB = f"{WORKSPACE}/memory_system/openclaw_memory.db"
 
 @cached(ttl_seconds=30)
 def get_agent_tasks(limit=20):
-    """Fetch recent tasks from memory system SQLite database."""
+    """Fetch recent session activity from OpenClaw sessions API.
+    Shows most recent session per agent as 'last task' indicator."""
     tasks = []
     try:
-        import sqlite3
-        if not pathlib.Path(MEMORY_DB).exists():
-            return {"ok": True, "tasks": [], "error": "Memory DB not found"}
-        conn = sqlite3.connect(MEMORY_DB)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, session_id, task_id, agent, model, status, 
-                   prompt_tokens, completion_tokens, result_summary, created_at
-            FROM task_log
-            ORDER BY created_at DESC
-            LIMIT ?
-        """, (limit,))
-        for row in cur.fetchall():
+        # Use unified session fetcher
+        sessions = _fetch_all_sessions()
+        if not sessions:
+            return {"ok": True, "tasks": []}
+        
+        # Group by agent, get most recent per agent
+        agent_sessions = {}
+        for s in sessions:
+            agent = s.get("agentId", "main")
+            if agent == "default":
+                agent = "main"
+            age = s.get("ageMs", 999999999)
+            
+            # Only consider sessions from last 24 hours
+            if age > 86400000:  # 24h in ms
+                continue
+            
+            if agent not in agent_sessions or age < agent_sessions[agent].get("ageMs", 999999999):
+                agent_sessions[agent] = s
+        
+        # Build task-like entries from sessions
+        for agent, s in sorted(agent_sessions.items(), key=lambda x: x[1].get("ageMs", 0)):
+            age_ms = s.get("ageMs", 0)
+            age_mins = int(age_ms / 60000)
+            
+            # Build a summary based on session state
+            if age_mins < 5:
+                status = "active"
+                summary = "Active now"
+            elif age_mins < 60:
+                status = "recent"
+                summary = f"Active {age_mins}m ago"
+            else:
+                status = "idle"
+                hours = age_mins // 60
+                mins = age_mins % 60
+                summary = f"Active {hours}h {mins}m ago"
+            
             tasks.append({
-                "id": row["id"],
-                "session_id": row["session_id"],
-                "task_id": row["task_id"],
-                "agent": row["agent"],
-                "model": row["model"],
-                "status": row["status"],
-                "prompt_tokens": row["prompt_tokens"],
-                "completion_tokens": row["completion_tokens"],
-                "result_summary": row["result_summary"],
-                "created_at": row["created_at"]
+                "id": s.get("sessionId", "")[:8],
+                "session_id": s.get("sessionId", ""),
+                "agent": agent,
+                "model": s.get("model", "unknown").split("/")[-1],
+                "status": status,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "result_summary": summary,
+                "created_at": datetime.now().isoformat()
             })
-        conn.close()
-        return {"ok": True, "tasks": tasks}
+        
+        return {"ok": True, "tasks": tasks[:limit]}
     except Exception as e:
         return {"ok": True, "tasks": [], "error": str(e)}
 
