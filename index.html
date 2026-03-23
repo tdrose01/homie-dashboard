@@ -1084,6 +1084,36 @@
     <div id="section-memory" class="section-content">
         <div class="grid">
             <div class="glass" style="grid-column:1/-1;">
+                <div class="panel-header">🔍 Semantic Search
+                    <span id="semantic-status" style="margin-left:auto;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;"></span>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+                    <input type="text" id="semantic-query" class="mem-search" style="flex:1;min-width:200px;padding-left:12px;" placeholder="Search by meaning (e.g., 'NBA props', 'git errors', 'model routing')..." onkeydown="if(event.key==='Enter')runSemanticSearch()"/>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:11px;color:var(--muted);">Min importance:</span>
+                        <select id="semantic-importance" class="btn" style="min-width:60px;">
+                            <option value="1">1+</option>
+                            <option value="3">3+</option>
+                            <option value="5">5+</option>
+                            <option value="7">7+</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:11px;color:var(--muted);">Limit:</span>
+                        <select id="semantic-limit" class="btn" style="min-width:60px;">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="runSemanticSearch()">🔍 Search</button>
+                </div>
+                <div id="semantic-results" style="margin-top:10px;">
+                    <div style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Enter a query to search memories by semantic similarity</div>
+                </div>
+            </div>
+
+            <div class="glass" style="grid-column:1/-1;">
                 <div class="panel-header">🧠 Memory Database
                     <span id="mem-db-total" style="margin-left:auto;font-size:11px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"></span>
                 </div>
@@ -1095,7 +1125,7 @@
                     <select id="mem-db-type" class="btn" style="min-width:130px;" onchange="loadMemoryDb()">
                         <option value="">All Types</option>
                     </select>
-                    <input type="text" id="mem-db-search" class="mem-search" style="flex:1;min-width:180px;padding-left:12px;" placeholder="Search content..." oninput="filterMemoryRows()"/>
+                    <input type="text" id="mem-db-search" class="mem-search" style="flex:1;min-width:180px;padding-left:12px;" placeholder="Filter content (text)..." oninput="filterMemoryRows()"/>
                 </div>
                 <div style="overflow-x:auto;">
                     <table class="model-table" id="mem-db-table">
@@ -2184,6 +2214,76 @@ function copySSHCommand(type) {
     }).catch(err => {
         showToast('Failed to copy: ' + err.message, 'error');
     });
+}
+
+// Semantic search
+async function runSemanticSearch() {
+    const query = document.getElementById('semantic-query').value.trim();
+    const importance = parseInt(document.getElementById('semantic-importance').value);
+    const limit = parseInt(document.getElementById('semantic-limit').value);
+    const statusEl = document.getElementById('semantic-status');
+    const resultsEl = document.getElementById('semantic-results');
+    
+    if (!query) {
+        resultsEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Enter a query to search memories by semantic similarity</div>';
+        return;
+    }
+    
+    statusEl.textContent = '🔍 Searching...';
+    statusEl.style.color = 'var(--cyan)';
+    
+    try {
+        const data = await get(`memory-search?q=${encodeURIComponent(query)}&limit=${limit}&importance=${importance}`);
+        
+        if (!data.ok) {
+            resultsEl.innerHTML = `<div style="color:var(--error);padding:20px;">Error: ${escapeHtml(data.error || 'Unknown error')}</div>`;
+            statusEl.textContent = '✗ Error';
+            statusEl.style.color = 'var(--error)';
+            return;
+        }
+        
+        if (data.count === 0) {
+            resultsEl.innerHTML = `<div style="color:var(--muted);padding:20px;text-align:center;">No memories found for "${escapeHtml(query)}"</div>`;
+            statusEl.textContent = '∅ No results';
+            statusEl.style.color = 'var(--muted)';
+            return;
+        }
+        
+        resultsEl.innerHTML = `
+            <div style="margin-bottom:10px;padding:8px;background:rgba(0,212,255,0.05);border-radius:6px;font-size:11px;color:var(--cyan);font-family:'JetBrains Mono',monospace;">
+                ${data.count} result${data.count !== 1 ? 's' : ''} • Similarity search (lower distance = more similar)
+            </div>
+            <table class="model-table" style="width:100%;">
+                <thead><tr>
+                    <th>Agent</th><th>Type</th><th style="text-align:center;">Imp</th><th>Content</th><th style="text-align:center;">Dist</th><th>When</th>
+                </tr></thead>
+                <tbody>
+                    ${data.results.map(r => {
+                        const distBadge = r.distance < 0.2 ? '🟢' : r.distance < 0.4 ? '🟡' : r.distance < 0.6 ? '🟠' : '🔴';
+                        const imp = r.importance >= 8 ? '🔴' : r.importance >= 5 ? '🟡' : '⚪';
+                        const when = r.created_at ? r.created_at.slice(0, 16).replace('T', ' ') : '--';
+                        const content = escapeHtml(r.content).substring(0, 100) + (escapeHtml(r.content).length > 100 ? '...' : '');
+                        return `<tr>
+                            <td class="mn" style="color:var(--cyan)">${escapeHtml(r.agent)}</td>
+                            <td><span style="color:${r.type === 'agent' ? 'var(--cyan)' : r.type === 'task' ? 'var(--purple)' : r.type === 'system' ? 'var(--ok)' : 'var(--muted)'};font-size:11px;">${escapeHtml(r.type)}</span></td>
+                            <td style="text-align:center;">${imp}</td>
+                            <td style="max-width:300px;white-space:normal;line-height:1.4;font-size:12px;">${content}</td>
+                            <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;">${distBadge} ${r.distance.toFixed(3)}</td>
+                            <td class="mn" style="white-space:nowrap;">${when}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+        
+        statusEl.textContent = `✓ ${data.count} found`;
+        statusEl.style.color = 'var(--ok)';
+    } catch (e) {
+        resultsEl.innerHTML = `<div style="color:var(--error);padding:20px;">Error: ${escapeHtml(e.message)}</div>`;
+        statusEl.textContent = '✗ Error';
+        statusEl.style.color = 'var(--error)';
+        console.error('Semantic search error:', e);
+    }
 }
 </script>
     </div><!-- /.main-content -->

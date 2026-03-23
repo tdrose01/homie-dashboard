@@ -618,6 +618,17 @@ def get_memory_db(limit=50, agent="", type_=""):
     except Exception as e:
         return {"ok": False, "error": str(e), "memories": [], "stats": [], "total": 0}
 
+def search_memory_semantic(query: str, limit: int = 10, min_importance: int = 1):
+    """Semantic search over memories using embeddings."""
+    import sys
+    sys.path.insert(0, f"{WORKSPACE}/memory_system")
+    try:
+        from memory_ops import search_memories_semantic
+        results = search_memories_semantic(query, limit=limit, min_importance=min_importance)
+        return {"ok": True, "results": results, "count": len(results)}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "results": [], "count": 0}
+
 @cached(ttl_seconds=30)
 def get_agent_tasks(limit=20):
     """Fetch recent session activity from OpenClaw sessions API.
@@ -992,6 +1003,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 agent = params.get("agent", "")
                 type_ = params.get("type", "")
                 self.send_json(get_memory_db(limit, agent, type_))
+            elif path == "/api/memory-search":
+                query = params.get("q", "")
+                limit = int(params.get("limit", 10))
+                min_importance = int(params.get("importance", 1))
+                if not query:
+                    self.send_json({"ok": False, "error": "Missing query parameter 'q'", "results": []}, 400)
+                else:
+                    self.send_json(search_memory_semantic(query, limit, min_importance))
             elif path == "/api/feed":
                 self.send_json({"ok": True, "entries": parse_activities(limit=100)})
             else:
