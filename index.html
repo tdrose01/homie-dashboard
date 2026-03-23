@@ -87,7 +87,6 @@
         .nav-item[data-section="memory"] .nav-icon { color: var(--green); }
         .nav-item[data-section="tasks"] .nav-icon { color: var(--yellow); }
         .nav-item[data-section="costs"] .nav-icon { color: var(--amber); }
-        .nav-item[data-section="actions"] .nav-icon { color: var(--red); }
 
         .sidebar-footer {
             padding: 12px 8px;
@@ -162,6 +161,10 @@
         }
         .sidebar-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
         .sidebar-item.active { background: rgba(0,212,255,0.12); color: var(--cyan); }
+.sidebar-badge { position:absolute; top:50%; right:8px; transform:translateY(-50%); min-width:18px; height:18px; border-radius:9px; background:var(--cyan); color:#000; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 5px; box-shadow:0 0 8px var(--cyan); animation:badge-pulse 2s infinite; }
+.sidebar-badge.cron-badge { background:var(--green); color:#000; box-shadow:0 0 8px var(--green); }
+@keyframes badge-pulse { 0%,100% { opacity:1; } 50% { opacity:0.7; } }
+
         .sidebar-icon { font-size: 18px; width: 24px; text-align: center; }
         .sidebar-label { font-size: 14px; font-weight: 500; }
         .sidebar-toggle-btn {
@@ -198,7 +201,6 @@
             .grid { grid-template-columns: 1fr; gap: 12px; }
             .glass { padding: 15px; }
             .meta { gap: 12px; font-size: 12px; }
-            .action-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
             .action-btn { font-size: 11px; padding: 8px; text-align: center; height: 100%; display: flex; align-items: center; justify-content: center; }
         }
         .stat { text-align: center; }
@@ -247,14 +249,7 @@
         .section-content.active { display: block; }
         .tab { position:relative; }
         .tab-badge { position:absolute; top:2px; right:2px; min-width:16px; height:16px; border-radius:8px; background:var(--cyan); color:#000; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 4px; box-shadow:0 0 6px var(--cyan); }
-        .confirm-overlay { position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; animation:fadeIn .2s; }
-        .confirm-box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px 28px; max-width:380px; width:90%; backdrop-filter:blur(16px); box-shadow:0 8px 32px rgba(0,0,0,0.4); }
-        .confirm-title { font-size:15px; font-weight:600; margin-bottom:8px; }
-        .confirm-msg { font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.5; }
-        .confirm-actions { display:flex; gap:10px; justify-content:flex-end; }
-        .confirm-actions .btn { padding:8px 18px; font-size:13px; }
-        .confirm-actions .btn.danger { border-color:rgba(239,68,68,0.4); color:var(--error); }
-        .confirm-actions .btn.danger:hover { background:rgba(239,68,68,0.15); }
+
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 
         .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }
@@ -317,14 +312,14 @@
 
         .todo-item { padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.04); }
         .todo-item.done { opacity:.65; text-decoration:line-through; }
-        .action-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:10px; }
+
+
         .action-btn { text-align:center; display: flex; align-items: center; justify-content: center; font-size:12px; padding:10px 12px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text); border-radius:8px; cursor:pointer; min-height: 44px; }
         .action-btn:hover { border-color: rgba(0,212,255,0.4); color: var(--cyan); }
         .action-btn:disabled { opacity:0.5; cursor:not-allowed; }
         .action-result { margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; color:var(--muted); background:rgba(0,0,0,.2); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:44px; max-height:250px; overflow-y:auto; }
 
         @media (max-width: 640px) {
-            .action-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
             .action-btn { font-size: 11px; padding: 8px; min-height: 50px; }
         }
 
@@ -688,6 +683,7 @@
             <div class="sidebar-item" data-section="agents" onclick="switchSection('agents')">
                 <span class="sidebar-icon">🤖</span>
                 <span class="sidebar-label">Agents</span>
+                <span class="sidebar-badge" id="agent-badge" style="display:none;">0</span>
             </div>
             <div class="sidebar-item" data-section="memory" onclick="switchSection('memory')">
                 <span class="sidebar-icon">🧠</span>
@@ -700,10 +696,11 @@
             <div class="sidebar-item" data-section="costs" onclick="switchSection('costs')">
                 <span class="sidebar-icon">💰</span>
                 <span class="sidebar-label">Costs</span>
+                <span class="sidebar-badge cron-badge" id="cron-badge" style="display:none;">0</span>
             </div>
-            <div class="sidebar-item" data-section="actions" onclick="switchSection('actions')">
-                <span class="sidebar-icon">⚡</span>
-                <span class="sidebar-label">Actions</span>
+            <div class="sidebar-item" data-section="terminal" onclick="switchSection('terminal')">
+                <span class="sidebar-icon">💻</span>
+                <span class="sidebar-label">Terminal</span>
             </div>
         </div>
         <div class="sidebar-footer">
@@ -837,16 +834,6 @@
         </div>
 
         <div class="glass" style="grid-column: 1 / -1;">
-            <div class="panel-header">Action Center</div>
-            <div id="action-grid" class="action-grid">
-                <div class="skel" style="height:44px;border-radius:8px"></div>
-                <div class="skel" style="height:44px;border-radius:8px"></div>
-                <div class="skel" style="height:44px;border-radius:8px"></div>
-            </div>
-            <div id="action-result" class="action-result">No actions run yet.</div>
-        </div>
-
-        <div class="glass" style="grid-column: 1 / -1;">
             <div class="panel-header">TODO / Progress</div>
             <div class="progress-wrap">
                 <div class="progress-row"><span id="todo-summary">0 / 0 done</span><span id="todo-percent">0%</span></div>
@@ -910,6 +897,15 @@
             </div>
 
             <div class="glass" style="grid-column:1/-1;">
+                <div class="panel-header">Scheduled Jobs</div>
+                <div id="scheduled-jobs-panel">
+                    <div class="skel" style="height:40px;border-radius:6px;margin-bottom:8px"></div>
+                    <div class="skel" style="height:40px;border-radius:6px;margin-bottom:8px"></div>
+                    <div class="skel" style="height:40px;border-radius:6px"></div>
+                </div>
+            </div>
+
+            <div class="glass" style="grid-column:1/-1;">
                 <div class="panel-header">Live Activity Feed</div>
                 <div id="feed-panel" class="feed">
                     <div class="skel skel-line" style="width:90%"></div>
@@ -917,6 +913,90 @@
                     <div class="skel skel-line" style="width:85%"></div>
                     <div class="skel skel-line" style="width:65%"></div>
                     <div class="skel skel-line" style="width:80%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="section-memory" class="section-content">
+        <div class="grid">
+            <div class="glass" style="grid-column:1/-1;">
+                <div class="panel-header">🧠 Memory Database
+                    <span id="mem-db-total" style="margin-left:auto;font-size:11px;color:var(--cyan);font-family:'JetBrains Mono',monospace;"></span>
+                </div>
+                <div id="mem-db-stats" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+                    <select id="mem-db-agent" class="btn" style="min-width:130px;" onchange="loadMemoryDb()">
+                        <option value="">All Agents</option>
+                    </select>
+                    <select id="mem-db-type" class="btn" style="min-width:130px;" onchange="loadMemoryDb()">
+                        <option value="">All Types</option>
+                    </select>
+                    <input type="text" id="mem-db-search" class="mem-search" style="flex:1;min-width:180px;padding-left:12px;" placeholder="Search content..." oninput="filterMemoryRows()"/>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="model-table" id="mem-db-table">
+                        <thead><tr>
+                            <th>Agent</th><th>Type</th><th style="text-align:center;">Imp</th><th>Content</th><th>When</th>
+                        </tr></thead>
+                        <tbody id="mem-db-body">
+                            <tr><td colspan="5"><div class="skel" style="height:32px;border-radius:6px;"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="section-terminal" class="section-content">
+        <div class="glass" style="grid-column: 1 / -1;">
+            <div class="panel-header">💻 Terminal Command Runner</div>
+            <div style="margin-bottom:16px;">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+                    <select id="quick-cmd" class="btn" style="min-width:200px;text-align:left;">
+                        <option value="">-- Quick Commands --</option>
+                        <option value="status">openclaw status</option>
+                        <option value="doctor">openclaw doctor</option>
+                        <option value="doctor-fix">openclaw doctor --fix</option>
+                        <option value="health">openclaw health</option>
+                        <option value="sessions">openclaw sessions</option>
+                        <option value="version">openclaw --version</option>
+                    </select>
+                    <button class="btn" onclick="runQuickCommand()">▶ Run</button>
+                    <button class="btn" onclick="clearTerminal()">Clear Output</button>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <input type="text" id="custom-cmd" class="mem-search" style="flex:1;min-width:200px;padding-left:12px;" placeholder="Enter command to run via SSH..." />
+                    <button class="btn" onclick="runCustomCommand()">▶ Run Custom</button>
+                </div>
+            </div>
+            <div id="terminal-output" class="action-result" style="min-height:300px;max-height:500px;font-family:'JetBrains Mono',monospace;font-size:12px;white-space:pre-wrap;background:rgba(0,0,0,0.3);">
+<span style="color:var(--cyan)">Terminal ready.</span>
+<span style="color:var(--muted)">Select a quick command or enter a custom command above.</span>
+</div>
+        </div>
+
+        <div class="glass" style="grid-column: 1 / -1;">
+            <div class="panel-header">🔐 SSH Quick Connect</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;">
+                <div>
+                    <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Host Information</div>
+                    <div class="row"><span class="lbl">Hostname</span><span class="val" id="ssh-host">instance-20260201-213840</span></div>
+                    <div class="row"><span class="lbl">Tailscale</span><span class="val">instance-20260201-213840.tail6fbe22.ts.net</span></div>
+                    <div class="row"><span class="lbl">Local IP</span><span class="val" id="ssh-local-ip">--</span></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Quick Actions</div>
+                    <button class="action-btn" onclick="copySSHCommand('tailscale')">📋 Copy Tailscale SSH Command</button>
+                    <button class="action-btn" onclick="copySSHCommand('local')">📋 Copy Local SSH Command</button>
+                    <div id="ssh-copy-toast" style="font-size:11px;color:var(--green);display:none;">✓ Copied to clipboard!</div>
+                </div>
+            </div>
+            <div style="margin-top:16px;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;font-size:12px;">
+                <div style="color:var(--cyan);margin-bottom:8px;">💡 Tip: Open Terminal Locally</div>
+                <div style="color:var(--muted);line-height:1.6;">
+                    For full terminal access, use your preferred SSH client:<br>
+                    <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">ssh rosebud0585@instance-20260201-213840.tail6fbe22.ts.net</code>
                 </div>
             </div>
         </div>
@@ -1002,17 +1082,14 @@ function switchSection(section) {
     }
     
     // Scroll to specific panels if needed
-    if (section === 'memory') {
-        setTimeout(() => document.querySelector('.memory-panel')?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } else if (section === 'tasks') {
+    if (section === 'tasks') {
         setTimeout(() => document.querySelector('.todo-list')?.closest('.glass')?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } else if (section === 'actions') {
-        setTimeout(() => document.querySelector('#action-grid')?.closest('.glass')?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
-    
+
     // Load section-specific data
     if (section === 'agents') loadAgents();
     if (section === 'costs') loadOps();
+    if (section === 'memory') loadMemoryDb();
     
     // Close sidebar on mobile after selection
     if (window.innerWidth <= 768) {
@@ -1122,7 +1199,7 @@ async function loadAgents() {
             for (const task of tasksRes.tasks) {
                 const agentKey = task.agent || 'main';
                 if (!agentTasks[agentKey]) {
-                    agentTasks[agentKey] = task.result_summary || task.status;
+                    agentTasks[agentKey] = task.task_description || task.result_summary || task.status;
                 }
             }
         }
@@ -1224,6 +1301,25 @@ function fmtAge(ms) {
     if (ms < 3600000) return Math.floor(ms / 60000) + 'm ago';
     if (ms < 86400000) return Math.floor(ms / 3600000) + 'h ago';
     return Math.floor(ms / 86400000) + 'd ago';
+}
+
+function fmtDateTime(ms) {
+    if (!ms && ms !== 0) return '--';
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return '--';
+    return d.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+}
+
+function cronStatusClass(status) {
+    const s = String(status || '').toLowerCase();
+    if (['success', 'ok', 'completed', 'complete', 'healthy'].includes(s)) return 'active';
+    if (['error', 'failed', 'failure', 'aborted'].includes(s)) return 'error';
+    return 'idle';
 }
 
 let _rawMemoryContent = '';
@@ -1379,8 +1475,8 @@ async function load() {
     document.body.style.opacity = '0.7';
     if (currentTab === 'agents') loadAgents();
     if (currentTab === 'ops') loadOps();
-    const [s, m, p, sk, mem, is, td, ac, gw] = await Promise.all([
-        get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos'), get('actions'), get('gateway-health')
+    const [s, m, p, sk, mem, is, td, gw] = await Promise.all([
+        get('status'), get('monitor'), get('providers'), get('skills'), get('memory'), get('issues'), get('todos'), get('gateway-health')
     ]);
 
     try {
@@ -1448,13 +1544,6 @@ async function load() {
         _lastIssues = is.issues || [];
         renderAlerts();
     } catch(e) { console.error('Alerts panel:', e); }
-
-    try {
-        const actions = ac.actions || [];
-        document.getElementById('action-grid').innerHTML = actions.length
-          ? actions.map(a => `<button class="action-btn" ${a.cooldown_left > 0 ? 'disabled' : ''} onclick="confirmAction('${escapeHtml(a.id)}','${escapeHtml(a.label)}')">${escapeHtml(a.label)}${a.cooldown_left > 0 ? `\n(cooldown: ${escapeHtml(a.cooldown_left)}s)` : ''}</button>`).join('')
-          : '<div class="nominal">No actions configured</div>';
-    } catch(e) { console.error('Actions panel:', e); }
 
     try {
         document.getElementById('todo-summary').textContent = `${escapeHtml(td.done) || 0} / ${escapeHtml(td.total) || 0} done`;
@@ -1544,10 +1633,101 @@ function renderCostChart(days) {
     }
 }
 
+function renderRateLimits(rl) {
+    const limits = (rl && rl.limits) || [];
+    const el = document.getElementById('rate-limits-panel');
+    if (!el) return;
+    el.innerHTML = limits.length
+      ? limits.map(l => {
+          const cls = l.percent > 80 ? 'danger' : (l.percent > 60 ? 'warn' : 'ok');
+          return `<div class="gauge">
+              <div class="gauge-head"><span class="gauge-provider">${escapeHtml(l.provider)}</span><span class="gauge-pct">${l.percent}%</span></div>
+              <div class="gauge-bar"><div class="gauge-fill ${cls}" style="width:${Math.min(l.percent, 100)}%"></div></div>
+              <div class="gauge-meta">${l.used} / ${l.limit || '?'} &middot; window: ${escapeHtml(l.window)}</div>
+          </div>`;
+        }).join('')
+      : '<div class="nominal">No rate limit data</div>';
+}
+
+const MEM_TYPE_COLORS = {
+    decision: 'var(--cyan)', error: 'var(--error)', fix: 'var(--ok)',
+    lesson: 'var(--purple)', config: 'var(--warn)', task: 'var(--muted)',
+    verification: 'var(--ok)', result: 'var(--cyan)', finding: 'var(--warn)',
+    install: 'var(--muted)', session_summary: 'var(--purple)',
+};
+
+let _memDbRows = [];
+
+async function loadMemoryDb() {
+    const agent = document.getElementById('mem-db-agent')?.value || '';
+    const type_ = document.getElementById('mem-db-type')?.value || '';
+    const url = `memory-db?limit=100${agent ? '&agent='+encodeURIComponent(agent) : ''}${type_ ? '&type='+encodeURIComponent(type_) : ''}`;
+    const data = await get(url);
+    if (!data.ok) return;
+
+    document.getElementById('mem-db-total').textContent = `${data.total} total entries`;
+
+    // Populate filter dropdowns (first load only)
+    const agentSel = document.getElementById('mem-db-agent');
+    const typeSel = document.getElementById('mem-db-type');
+    if (agentSel.options.length === 1) {
+        [...new Set(data.stats.map(s => s.agent))].forEach(a => {
+            const o = document.createElement('option'); o.value = a; o.textContent = a; agentSel.appendChild(o);
+        });
+    }
+    if (typeSel.options.length === 1) {
+        [...new Set(data.stats.map(s => s.type))].sort().forEach(t => {
+            const o = document.createElement('option'); o.value = t; o.textContent = t; typeSel.appendChild(o);
+        });
+    }
+
+    // Stats chips
+    const agentTotals = {};
+    data.stats.forEach(s => { agentTotals[s.agent] = (agentTotals[s.agent] || 0) + s.cnt; });
+    document.getElementById('mem-db-stats').innerHTML = Object.entries(agentTotals).map(([a, n]) =>
+        `<span style="background:rgba(0,180,255,0.1);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:11px;font-family:'JetBrains Mono',monospace;">
+            <span style="color:var(--cyan)">${escapeHtml(a)}</span> <span style="color:var(--muted)">${n}</span>
+        </span>`
+    ).join('');
+
+    _memDbRows = data.memories;
+    filterMemoryRows();
+}
+
+function filterMemoryRows() {
+    const q = (document.getElementById('mem-db-search')?.value || '').toLowerCase();
+    const rows = q ? _memDbRows.filter(r => r.content.toLowerCase().includes(q)) : _memDbRows;
+    const tbody = document.getElementById('mem-db-body');
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No entries found</td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(r => {
+        const color = MEM_TYPE_COLORS[r.type] || 'var(--muted)';
+        const imp = r.importance >= 8 ? '🔴' : r.importance >= 5 ? '🟡' : '⚪';
+        const when = r.created_at ? r.created_at.slice(0, 16).replace('T', ' ') : '--';
+        const content = q
+            ? escapeHtml(r.content).replace(new RegExp(escapeHtml(q), 'gi'), m => `<mark style="background:rgba(0,180,255,0.25);color:inherit;">${m}</mark>`)
+            : escapeHtml(r.content);
+        return `<tr>
+            <td class="mn" style="color:var(--cyan)">${escapeHtml(r.agent)}</td>
+            <td><span style="color:${color};font-size:11px;">${escapeHtml(r.type)}</span></td>
+            <td style="text-align:center;">${imp}</td>
+            <td style="max-width:480px;white-space:normal;line-height:1.5;font-size:12px;">${content}</td>
+            <td class="mn" style="white-space:nowrap;">${when}</td>
+        </tr>`;
+    }).join('');
+}
+
 async function loadOps() {
-    const [costs, rl, crons, feed, costHist] = await Promise.all([
-        get('costs'), get('rate-limits'), get('crons'), get('feed'), get('cost-history')
+    // rate-limits is slow (~6s) — load it independently so it doesn't block the rest
+    get('rate-limits').then(rl => {
+        try { renderRateLimits(rl); } catch(e) {}
+    });
+    const [costs, crons, feed, costHist, cronConfig] = await Promise.all([
+        get('costs'), get('crons'), get('feed'), get('cost-history'), get('cron-config')
     ]);
+    const rl = null; // already loading async above
 
     try {
         document.getElementById('cost-today').textContent = fmtCost(costs.today_cost);
@@ -1569,19 +1749,7 @@ async function loadOps() {
         renderCostChart((costHist.days || []).slice(-30));
     } catch(e) { console.error('Cost chart:', e); }
 
-    try {
-        const limits = rl.limits || [];
-        document.getElementById('rate-limits-panel').innerHTML = limits.length
-          ? limits.map(l => {
-              const cls = l.percent > 80 ? 'danger' : (l.percent > 60 ? 'warn' : 'ok');
-              return `<div class="gauge">
-                  <div class="gauge-head"><span class="gauge-provider">${escapeHtml(l.provider)}</span><span class="gauge-pct">${l.percent}%</span></div>
-                  <div class="gauge-bar"><div class="gauge-fill ${cls}" style="width:${Math.min(l.percent, 100)}%"></div></div>
-                  <div class="gauge-meta">${l.used} / ${l.limit || '?'} &middot; window: ${escapeHtml(l.window)}</div>
-              </div>`;
-            }).join('')
-          : '<div class="nominal">No rate limit data</div>';
-    } catch(e) { console.error('Rate limits panel:', e); }
+    // rate limits rendered async — see renderRateLimits()
 
     try {
         const jobs = crons.crons || [];
@@ -1595,6 +1763,24 @@ async function loadOps() {
             </div>`).join('')
           : '<div class="nominal">No cron jobs found</div>';
     } catch(e) { console.error('Crons panel:', e); }
+
+    try {
+        const jobs = Array.isArray(cronConfig) ? cronConfig : [];
+        document.getElementById('scheduled-jobs-panel').innerHTML = jobs.length
+          ? `<table class="model-table"><thead><tr><th>Job</th><th>Agent/Model</th><th>Schedule</th><th>Last Status</th><th>Next Run</th><th>Consecutive Errors</th></tr></thead><tbody>${jobs.map(j => {
+              const status = cronStatusClass(j.lastStatus);
+              const agentModelDisplay = j.agentId && j.model ? `${escapeHtml(j.agentId)} (${escapeHtml(j.model)})` : escapeHtml(j.agentId || j.model || '--');
+              return `<tr>
+                  <td class="mn">${escapeHtml(j.name || '--')}</td>
+                  <td>${agentModelDisplay}</td>
+                  <td>${escapeHtml(j.schedule_expr || '--')}</td>
+                  <td><span style="display:inline-flex;align-items:center;gap:8px;"><span class="cron-dot ${status}"></span>${escapeHtml(j.lastStatus || 'idle')}</span></td>
+                  <td>${fmtDateTime(j.nextRunAtMs)}</td>
+                  <td>${escapeHtml(j.consecutiveErrors ?? 0)}</td>
+              </tr>`;
+            }).join('')}</tbody></table>`
+          : '<div class="nominal">No scheduled cron jobs</div>';
+    } catch(e) { console.error('Scheduled jobs panel:', e); }
 
     try {
         const entries = feed.entries || [];
@@ -1640,35 +1826,30 @@ async function toggleTodo(path, lineNo, currentDone) {
     }
 }
 
-async function runAction(actionId) {
-    const out = document.getElementById('action-result');
-    out.textContent = `Running ${actionId} ...`;
-    try {
-        const r = await post(API_BASE + '/actions/run', { action: actionId });
-        if (!r.ok) {
-            out.textContent = `[FAIL] ${r.label || actionId}\nerror: ${r.error || 'unknown'}\n${r.stderr || ''}`.trim();
-            await load();
-            return;
-        }
-        const summary = [
-            `[OK] ${r.label || actionId}`,
-            `exit: ${r.exit_code}`,
-            r.stdout ? `stdout:\n${r.stdout}` : '',
-            r.stderr ? `stderr:\n${r.stderr}` : '',
-        ].filter(Boolean).join('\n\n');
-        out.textContent = summary;
-        await load();
-    } catch (e) {
-        out.textContent = `[FAIL] ${actionId}\n${e.message}`;
-    }
-}
-
 function updateAgentBadge() {
     try {
         fetch(API_BASE + '/agents').then(r => r.json()).then(r => {
             if (!r.ok || !r.sessions) return;
             const active = r.sessions.filter(s => !(s.key||'').includes('cron:') && (s.ageMs < 120000 || s.abortedLastRun)).length;
             const badge = document.getElementById('agent-badge');
+            if (!badge) return;
+            if (active > 0) { badge.textContent = active; badge.style.display = 'flex'; }
+            else { badge.style.display = 'none'; }
+        }).catch(() => {});
+    } catch(e) {}
+}
+
+function updateCronBadge() {
+    try {
+        fetch(API_BASE + '/cron-config').then(r => r.json()).then(jobs => {
+            if (!Array.isArray(jobs)) return;
+            const now = Date.now();
+            const active = jobs.filter(j => {
+                if (!j.lastRunAtMs) return false;
+                const age = now - j.lastRunAtMs;
+                return age < 300000 && j.lastStatus === 'ok';
+            }).length;
+            const badge = document.getElementById('cron-badge');
             if (!badge) return;
             if (active > 0) { badge.textContent = active; badge.style.display = 'flex'; }
             else { badge.style.display = 'none'; }
@@ -1695,8 +1876,10 @@ function updateOpsBadge() {
 }
 
 setInterval(updateAgentBadge, 30000);
+setInterval(updateCronBadge, 30000);
 setInterval(updateOpsBadge, 30000);
 setTimeout(updateAgentBadge, 2000);
+setTimeout(updateCronBadge, 2500);
 setTimeout(updateOpsBadge, 2500);
 
 let _refreshInterval = setInterval(load, REFRESH_INTERVAL * 1000);
@@ -1710,33 +1893,18 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-function confirmAction(actionId, label) {
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.innerHTML = `<div class="confirm-box">
-        <div class="confirm-title">Confirm Action</div>
-        <div class="confirm-msg">Run <strong>${escapeHtml(label)}</strong>?<br>This will affect the live service.</div>
-        <div class="confirm-actions">
-            <button class="btn" onclick="this.closest('.confirm-overlay').remove()">Cancel</button>
-            <button class="btn danger" onclick="this.closest('.confirm-overlay').remove(); runAction('${escapeHtml(actionId)}')">Run</button>
-        </div>
-    </div>`;
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-}
-
 async function downloadSnapshot() {
     showToast('Gathering snapshot...', 'info');
     try {
-        const [status, monitor, providers, skills, issues, todos, actions, gw, costs, crons, rateLimits, feed] = await Promise.all([
+        const [status, monitor, providers, skills, issues, todos, gw, costs, crons, rateLimits, feed] = await Promise.all([
             get('status'), get('monitor'), get('providers'), get('skills'),
-            get('issues'), get('todos'), get('actions'), get('gateway-health'),
+            get('issues'), get('todos'), get('gateway-health'),
             get('costs'), get('crons'), get('rate-limits'), get('feed')
         ]);
         const snapshot = {
             exported_at: new Date().toISOString(),
             system: status, monitor, providers, skills, issues, todos,
-            actions, gateway_health: gw, costs, crons, rate_limits: rateLimits, feed
+            gateway_health: gw, costs, crons, rate_limits: rateLimits, feed
         };
         const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1774,6 +1942,86 @@ setInterval(() => {
 }, 1000);
 
 load();
+
+// Terminal Functions
+async function runQuickCommand() {
+    const select = document.getElementById('quick-cmd');
+    const cmd = select.value;
+    if (!cmd) {
+        showToast('Please select a command', 'warn');
+        return;
+    }
+    
+    const output = document.getElementById('terminal-output');
+    output.innerHTML = `<span style="color:var(--cyan)">Running: openclaw ${cmd === 'doctor-fix' ? 'doctor --fix' : cmd}...</span>\n\n`;
+    
+    // Map quick commands to action IDs
+    const actionMap = {
+        'status': 'openclaw_status',
+        'doctor': 'openclaw_doctor',
+        'doctor-fix': 'openclaw_doctor_fix',
+        'health': 'check_gateway_health',
+        'sessions': 'openclaw_sessions',
+        'version': 'openclaw_version'
+    };
+    
+    const actionId = actionMap[cmd];
+    if (actionId) {
+        try {
+            const r = await post(API_BASE + '/actions/run', { action: actionId });
+            if (r.ok) {
+                output.innerHTML += `<span style="color:var(--green)">✓ Success (exit: ${r.exit_code})</span>\n\n`;
+                if (r.stdout) output.innerHTML += escapeHtml(r.stdout);
+                if (r.stderr) output.innerHTML += `\n<span style="color:var(--warn)">${escapeHtml(r.stderr)}</span>`;
+            } else {
+                output.innerHTML += `<span style="color:var(--error)">✗ Failed: ${escapeHtml(r.error || 'unknown error')}</span>`;
+                if (r.stderr) output.innerHTML += `\n<span style="color:var(--warn)">${escapeHtml(r.stderr)}</span>`;
+            }
+        } catch (e) {
+            output.innerHTML += `<span style="color:var(--error)">✗ Error: ${escapeHtml(e.message)}</span>`;
+        }
+    } else {
+        output.innerHTML += `<span style="color:var(--warn)">Command not implemented yet: ${escapeHtml(cmd)}</span>`;
+    }
+    output.scrollTop = output.scrollHeight;
+}
+
+async function runCustomCommand() {
+    const input = document.getElementById('custom-cmd');
+    const cmd = (input.value || '').trim();
+    if (!cmd) {
+        showToast('Please enter a command', 'warn');
+        return;
+    }
+    
+    const output = document.getElementById('terminal-output');
+    output.innerHTML = `<span style="color:var(--cyan)">Running: ${escapeHtml(cmd)}</span>\n\n`;
+    output.innerHTML += `<span style="color:var(--warn)">⚠ Custom commands require SSH terminal access.</span>\n\n`;
+    output.innerHTML += `<span style="color:var(--muted)">For security, custom commands must be run via SSH:</span>\n`;
+    output.innerHTML += `<code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;display:block;margin-top:8px;">ssh rosebud0585@instance-20260201-213840.tail6fbe22.ts.net</code>\n\n`;
+    output.innerHTML += `<span style="color:var(--muted)">Then run:</span>\n`;
+    output.innerHTML += `<code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;display:block;margin-top:4px;">${escapeHtml(cmd)}</code>`;
+    output.scrollTop = output.scrollHeight;
+}
+
+function clearTerminal() {
+    document.getElementById('terminal-output').innerHTML = `<span style="color:var(--cyan)">Terminal cleared.</span>\n<span style="color:var(--muted)">Select a quick command or enter a custom command above.</span>`;
+}
+
+function copySSHCommand(type) {
+    const host = type === 'tailscale' 
+        ? 'instance-20260201-213840.tail6fbe22.ts.net'
+        : '127.0.0.1';
+    const cmd = `ssh rosebud0585@${host}`;
+    
+    navigator.clipboard.writeText(cmd).then(() => {
+        const toast = document.getElementById('ssh-copy-toast');
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    }).catch(err => {
+        showToast('Failed to copy: ' + err.message, 'error');
+    });
+}
 </script>
     </div><!-- /.main-content -->
 </body>

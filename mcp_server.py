@@ -45,6 +45,26 @@ def check_gateway_health() -> str:
     return call_dashboard_action("check_gateway_health")
 
 @mcp.tool()
+def openclaw_doctor_fix() -> str:
+    """Runs openclaw doctor --fix to diagnose and repair issues via the Dashboard API."""
+    return call_dashboard_action("openclaw_doctor_fix")
+
+@mcp.tool()
+def openclaw_doctor() -> str:
+    """Runs openclaw doctor to diagnose issues via the Dashboard API."""
+    return call_dashboard_action("openclaw_doctor")
+
+@mcp.tool()
+def openclaw_status() -> str:
+    """Shows openclaw status via the Dashboard API."""
+    return call_dashboard_action("openclaw_status")
+
+@mcp.tool()
+def openclaw_sessions() -> str:
+    """Lists openclaw sessions via the Dashboard API."""
+    return call_dashboard_action("openclaw_sessions")
+
+@mcp.tool()
 def get_system_status() -> str:
     """Fetches the current system metrics (CPU, Memory, Disk) from the Dashboard API."""
     try:

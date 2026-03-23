@@ -388,6 +388,21 @@ def parse_todos():
     grand_pct = round((grand_done / grand_total) * 100) if grand_total else 0
     return {"projects": projects, "total": grand_total, "done": grand_done, "percent": grand_pct}
 
+_ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+
+def _parse_json_output(text):
+    """Extract JSON from subprocess output that may contain plugin log lines before or after."""
+    clean = _ansi_escape.sub('', text or '')
+    for i, ch in enumerate(clean):
+        if ch in '{[':
+            try:
+                obj, _ = json.JSONDecoder().raw_decode(clean, i)
+                return obj
+            except json.JSONDecodeError:
+                continue
+    return None
+
+
 @cached(ttl_seconds=10)
 def _fetch_all_sessions():
     """Unified session fetcher - called once, used by costs and crons."""
@@ -397,7 +412,9 @@ def _fetch_all_sessions():
             capture_output=True, text=True, timeout=10
         )
         if proc.returncode == 0:
-            return json.loads(proc.stdout).get("sessions", [])
+            data = _parse_json_output(proc.stdout)
+            if data:
+                return data.get("sessions", [])
     except Exception:
         pass
     return []
@@ -484,31 +501,122 @@ def record_daily_snapshot(costs):
 
 @cached(ttl_seconds=60)
 def get_cron_sessions():
-    """Get cron session status using shared session cache."""
-    sessions = _fetch_all_sessions()
+    """Get cron job status from cron config (authoritative last-run times)."""
+    jobs = get_configured_crons()
+    now_ms = time.time() * 1000
     crons = []
-    for s in sessions:
-        key = s.get("key", "")
-        if "cron:" not in key:
-            continue
-        age = s.get("ageMs", 999999)
-        # Filter to sessions active in last 72 hours (4320 mins)
-        if age > 4320 * 60 * 1000:
-            continue
-        aborted = s.get("abortedLastRun", False)
-        status = "error" if aborted else ("active" if age < 300000 else "idle")
+    for job in jobs:
+        last_ms = job.get("lastRunAtMs")
+        age_ms = int(now_ms - last_ms) if last_ms else None
+        last_status = (job.get("lastStatus") or "").lower()
+        if last_status in ("error", "failed", "failure", "aborted"):
+            status = "error"
+        elif age_ms is not None and age_ms < 300000:
+            status = "active"
+        else:
+            status = "idle"
         crons.append({
-            "name": key.split("cron:", 1)[-1].strip() or key,
+            "name": job.get("name", ""),
             "status": status,
-            "model": s.get("model", "unknown"),
-            "last_run_ms": age,
-            "tokens": s.get("totalTokens", 0),
-            "session_id": s.get("sessionId", ""),
+            "model": job.get("model", ""),
+            "last_run_ms": age_ms,
+            "tokens": 0,
+            "session_id": "",
         })
     return {"ok": True, "crons": crons}
 
 
+@cached(ttl_seconds=30)
+def get_configured_crons():
+    """Get configured cron jobs from `openclaw cron list --json`."""
+    try:
+        result = subprocess.run(
+            [OPENCLAW_BIN, "cron", "list", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return []
+        payload = _parse_json_output(result.stdout) or []
+        if isinstance(payload, dict):
+            jobs = payload.get("jobs", [])
+        elif isinstance(payload, list):
+            jobs = payload
+        else:
+            return []
+        if not isinstance(jobs, list):
+            return []
+        formatted = []
+        for job in jobs:
+            if not isinstance(job, dict):
+                continue
+            schedule = job.get("schedule") if isinstance(job.get("schedule"), dict) else {}
+            state = job.get("state") if isinstance(job.get("state"), dict) else {}
+            payload_cfg = job.get("payload") if isinstance(job.get("payload"), dict) else {}
+
+            schedule_expr = job.get("schedule_expr") or job.get("spec") or ""
+            if not schedule_expr:
+                if schedule.get("kind") == "cron":
+                    schedule_expr = schedule.get("expr", "")
+                elif schedule.get("kind") == "every":
+                    every_ms = schedule.get("everyMs")
+                    if isinstance(every_ms, (int, float)) and every_ms > 0:
+                        minutes = int(every_ms // 60000)
+                        hours = int(every_ms // 3600000)
+                        if every_ms % 3600000 == 0:
+                            schedule_expr = f"every {hours}h"
+                        elif every_ms % 60000 == 0:
+                            schedule_expr = f"every {minutes}m"
+                        else:
+                            schedule_expr = f"every {int(every_ms)}ms"
+
+            formatted.append({
+                "name": job.get("name", ""),
+                "schedule_expr": schedule_expr,
+                "agentId": job.get("agentId") or job.get("agent") or "",
+                "model": job.get("model") or payload_cfg.get("model", ""),
+                "lastStatus": job.get("lastStatus") or job.get("status") or state.get("lastStatus") or state.get("lastRunStatus") or "",
+                "lastRunAtMs": job.get("lastRunAtMs", job.get("lastRunMs", state.get("lastRunAtMs"))),
+                "nextRunAtMs": job.get("nextRunAtMs", job.get("nextRunMs", state.get("nextRunAtMs"))),
+                "consecutiveErrors": job.get("consecutiveErrors", state.get("consecutiveErrors", 0)),
+            })
+        return formatted
+    except Exception:
+        return []
+
+
 MEMORY_DB = f"{WORKSPACE}/memory_system/openclaw_memory.db"
+
+def get_memory_db(limit=50, agent="", type_=""):
+    import sqlite3 as _sqlite3
+    try:
+        conn = _sqlite3.connect(MEMORY_DB)
+        conn.row_factory = _sqlite3.Row
+        cur = conn.cursor()
+        where, params = [], []
+        if agent:
+            where.append("agent = ?"); params.append(agent)
+        if type_:
+            where.append("type = ?"); params.append(type_)
+        wc = f"WHERE {' AND '.join(where)}" if where else ""
+        rows = cur.execute(
+            f"SELECT agent, type, importance, content, created_at FROM memories {wc} ORDER BY created_at DESC LIMIT ?",
+            params + [limit]
+        ).fetchall()
+        stats = cur.execute(
+            "SELECT agent, type, COUNT(*) as cnt, MAX(importance) as max_imp FROM memories GROUP BY agent, type ORDER BY agent, cnt DESC"
+        ).fetchall()
+        total = cur.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+        conn.close()
+        return {
+            "ok": True,
+            "memories": [dict(r) for r in rows],
+            "stats": [dict(r) for r in stats],
+            "total": total,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e), "memories": [], "stats": [], "total": 0}
 
 @cached(ttl_seconds=30)
 def get_agent_tasks(limit=20):
@@ -873,10 +981,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_json(load_cost_history())
             elif path == "/api/crons":
                 self.send_json(get_cron_sessions())
+            elif path == "/api/cron-config":
+                self.send_json(get_configured_crons())
             elif path == "/api/rate-limits":
                 self.send_json(get_rate_limits())
             elif path == "/api/agent-tasks":
                 self.send_json(get_agent_tasks())
+            elif path == "/api/memory-db":
+                limit = int(params.get("limit", 50))
+                agent = params.get("agent", "")
+                type_ = params.get("type", "")
+                self.send_json(get_memory_db(limit, agent, type_))
             elif path == "/api/feed":
                 self.send_json({"ok": True, "entries": parse_activities(limit=100)})
             else:

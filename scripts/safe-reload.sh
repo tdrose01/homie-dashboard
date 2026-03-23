@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SERVICE="homie-dashboard.service"
-ROOT="/home/rosebud0585/.openclaw/workspace1/homie-dashboard"
+ROOT="/workspace/homie-dashboard"
 SERVER="$ROOT/server.py"
 URL="http://127.0.0.1:8899/"
 BACKUP_DIR="$ROOT/.deploy-backups"
